@@ -1,0 +1,16 @@
+.env
+__pycache__/
+*.py[cod]
+*.db
+.pytest_cache/
+.ruff_cache/
+.venv/
+node_modules/
+dist/
+coverage/
+*.joblib
+*.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts
+mosquitto/data/*
+!mosquitto/data/.gitkeep
