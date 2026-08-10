@@ -394,14 +394,17 @@ export default function SettingsPage() {
 
               {formDeviceType === 'HAZARD_NODE' && (
                 <label>
-                  <span>Link to Forklift / Hazard Machine</span>
-                  <select value={targetId} onChange={(e) => setTargetId(e.target.value)} required>
-                    {hazardsQuery.data?.items.map((h) => (
-                      <option key={h.id} value={h.id}>
-                        {h.name} ({h.type})
-                      </option>
-                    ))}
-                  </select>
+                  <span>Link to Forklift / Hazard Machine (ID)</span>
+                  <input
+                    type="text"
+                    placeholder="e.g. F01, Forklift-Gudang"
+                    value={targetId}
+                    onChange={(e) => setTargetId(e.target.value)}
+                    required
+                  />
+                  <span style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '4px', display: 'block' }}>
+                    * Jika ID alat belum ada, sistem akan otomatis mendaftarkannya sebagai Hazard baru.
+                  </span>
                 </label>
               )}
 

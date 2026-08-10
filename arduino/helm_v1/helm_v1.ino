@@ -150,9 +150,9 @@ constexpr unsigned long HAZARD_TIMEOUT_MS = 6000;
 
 // Threshold awal dari rancangan REKSA.
 // Kalibrasikan kembali berdasarkan hasil pengujian jarak.
-constexpr int RSSI_CRITICAL_THRESHOLD = -65;
-constexpr int RSSI_HIGH_THRESHOLD = -75;
-constexpr int RSSI_MODERATE_THRESHOLD = -85;
+constexpr int RSSI_CRITICAL_THRESHOLD = -75;
+constexpr int RSSI_HIGH_THRESHOLD = -85;
+constexpr int RSSI_MODERATE_THRESHOLD = -95;
 
 // RSSI smoothing dan stabilisasi perubahan zona.
 constexpr uint8_t RSSI_WINDOW_SIZE = 5;
@@ -761,10 +761,7 @@ void updateMotionAndAirQuality() {
   latestMotion.yaw = 0.0;
   latestMotion.impactG = totalG;
   latestMotion.impactDetected = totalG >= IMPACT_THRESHOLD_G;
-  latestMotion.fallDetected =
-    totalG <= FALL_FREEFALL_THRESHOLD_G ||
-    fabs(latestMotion.pitch) >= FALL_TILT_THRESHOLD_DEG ||
-    fabs(latestMotion.roll) >= FALL_TILT_THRESHOLD_DEG;
+  latestMotion.fallDetected = totalG <= FALL_FREEFALL_THRESHOLD_G;
 }
 
 // =====================================================

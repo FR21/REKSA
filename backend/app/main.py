@@ -13,6 +13,35 @@ from app.database.seed import seed_database
 from app.database.session import SessionLocal
 from app.services.mqtt_handler import handle_mqtt_message
 from app.services.mqtt_service import MQTTService
+from app.services.websocket_service import websocket_manager
+from app.simulation.engine import simulation_engine
+from datetime import UTC, datetime, timedelta
+
+async def monitor_inactivity() -> None:
+    while True:
+        await asyncio.sleep(5)
+        now = datetime.now(UTC)
+        threshold = timedelta(seconds=15)
+        
+        for worker in simulation_engine.state["workers"]:
+            if worker.get("online") and worker.get("last_update"):
+                last_update = datetime.fromisoformat(worker["last_update"])
+                if now - last_update > threshold:
+                    worker["online"] = False
+                    await websocket_manager.broadcast("worker.updated", worker)
+                    
+        for device in simulation_engine.state["devices"]:
+            if device.get("online") and device.get("last_seen"):
+                last_seen = datetime.fromisoformat(device["last_seen"])
+                if now - last_seen > threshold:
+                    device["online"] = False
+                    await websocket_manager.broadcast("device.paired", device)
+                    
+        for hazard in simulation_engine.state["hazards"]:
+            if hazard.get("online") and hazard.get("last_update"):
+                last_update = datetime.fromisoformat(hazard["last_update"])
+                if now - last_update > threshold:
+                    hazard["online"] = False
 
 mqtt_service = MQTTService(settings.mqtt_host, settings.mqtt_port, handler=handle_mqtt_message)
 
@@ -24,7 +53,9 @@ async def lifespan(_: FastAPI):
         seed_database(db)
     mqtt_service.loop = asyncio.get_running_loop()
     mqtt_service.start()
+    inactivity_task = asyncio.create_task(monitor_inactivity())
     yield
+    inactivity_task.cancel()
     mqtt_service.stop()
 
 

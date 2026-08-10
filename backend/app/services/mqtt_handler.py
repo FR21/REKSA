@@ -73,18 +73,34 @@ async def handle_mqtt_message(topic: str, payload: dict[str, Any]) -> None:
                     else:
                         risk_score = 15
 
-                    worker.update({
-                        "closest_hazard": hz_id,
-                        "hazard_name": hz_name,
-                        "hazard_type": hz_type,
-                        "hazard_status": hz_status,
-                        "rssi": rssi,
-                        "smoothed_rssi": rssi,
-                        "proximity": proximity,
-                        "risk_level": risk_level,
-                        "risk_score": risk_score,
-                        "dominant_factor": "Paparan bahaya (Hardware)",
-                    })
+                    if risk_level == "SAFE":
+                        worker.update({
+                            "closest_hazard": hz_id,
+                            "hazard_name": hz_name,
+                            "hazard_type": hz_type,
+                            "hazard_status": hz_status,
+                            "rssi": rssi,
+                            "smoothed_rssi": rssi,
+                            "proximity": proximity,
+                            "risk_level": risk_level,
+                            "risk_score": risk_score,
+                            "dominant_factor": "None",
+                            "recommended_action": "Kondisi operasional normal. Tetap patuhi protokol K3 dan gunakan APD standar selama berada di area kerja.",
+                        })
+                    else:
+                        worker.update({
+                            "closest_hazard": hz_id,
+                            "hazard_name": hz_name,
+                            "hazard_type": hz_type,
+                            "hazard_status": hz_status,
+                            "rssi": rssi,
+                            "smoothed_rssi": rssi,
+                            "proximity": proximity,
+                            "risk_level": risk_level,
+                            "risk_score": risk_score,
+                            "dominant_factor": "Paparan bahaya (Hardware)",
+                            "recommended_action": "Tinggalkan area bahaya segera. Pastikan jarak aman minimal 15 meter dari alat berat yang beroperasi.",
+                        })
 
                     # Check if near miss needs to be created
                     if risk_level == "CRITICAL" and not simulation_engine._near_miss_created:
@@ -120,6 +136,8 @@ async def handle_mqtt_message(topic: str, payload: dict[str, Any]) -> None:
                         "proximity": "SAFE",
                         "risk_level": "SAFE",
                         "risk_score": 10,
+                        "dominant_factor": "None",
+                        "recommended_action": "Kondisi operasional normal. Tetap patuhi protokol K3 dan gunakan APD standar selama berada di area kerja.",
                     })
 
                 if worker.get("fall_detected"):
@@ -127,14 +145,14 @@ async def handle_mqtt_message(topic: str, payload: dict[str, Any]) -> None:
                         "risk_level": "CRITICAL",
                         "risk_score": max(worker["risk_score"], 96),
                         "dominant_factor": "Deteksi jatuh helm",
-                        "recommended_action": "Periksa pekerja segera dan hentikan aktivitas di area.",
+                        "recommended_action": "Periksa pekerja segera di lokasi kejadian dan hentikan seluruh aktivitas sementara di area tersebut.",
                     })
                 elif worker.get("impact"):
                     worker.update({
                         "risk_level": "CRITICAL",
                         "risk_score": max(worker["risk_score"], 94),
                         "dominant_factor": "Benturan helm terdeteksi",
-                        "recommended_action": "Periksa kondisi pekerja dan helm sebelum melanjutkan kerja.",
+                        "recommended_action": "Periksa kondisi fisik pekerja dan integritas helm keselamatan sebelum mengizinkan melanjutkan kerja.",
                     })
                 elif worker.get("air_quality_level") == "DANGEROUS":
                     worker.update({

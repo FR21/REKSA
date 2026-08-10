@@ -356,14 +356,30 @@ async def pair_device(values: PairDeviceInput) -> dict[str, Any]:
         assignment = assignment or worker["name"]
         topic = f"REKSA/helmet/{worker['id']}/sensor"
     elif values.device_type == "HAZARD_NODE":
-        hazard = find(simulation_engine.state["hazards"], values.target_id)
-        assignment = assignment or hazard["name"]
-        if values.assignment:
-            hazard["name"] = assignment
-            for worker in simulation_engine.state["workers"]:
-                if worker.get("closest_hazard") == hazard["id"]:
-                    worker["hazard_name"] = assignment
-                    await websocket_manager.broadcast("worker.updated", worker)
+        hazard = next((h for h in simulation_engine.state["hazards"] if h["id"] == values.target_id), None)
+        if hazard is None:
+            # Create new hazard on the fly
+            hazard = {
+                "id": values.target_id,
+                "name": assignment or f"Hazard {values.target_id}",
+                "type": "FORKLIFT",
+                "status": "ACTIVE",
+                "area": "Gudang Utama",
+                "x": 0.0,
+                "y": 0.0,
+                "online": False,
+                "last_update": now
+            }
+            simulation_engine.state["hazards"].append(hazard)
+            assignment = hazard["name"]
+        else:
+            assignment = assignment or hazard["name"]
+            if values.assignment:
+                hazard["name"] = assignment
+                for worker in simulation_engine.state["workers"]:
+                    if worker.get("closest_hazard") == hazard["id"]:
+                        worker["hazard_name"] = assignment
+                        await websocket_manager.broadcast("worker.updated", worker)
         topic = f"REKSA/hazard/{hazard['id']}/beacon"
     else:
         assignment = assignment or values.target_id

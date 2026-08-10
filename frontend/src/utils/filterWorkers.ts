@@ -7,5 +7,8 @@ export function filterWorkers(workers: Worker[], search: string, risk: string, d
       (risk === 'ALL' || worker.risk_level === risk) &&
       (device === 'ALL' || (device === 'ONLINE') === worker.online),
     )
-    .sort((a, b) => b.risk_score - a.risk_score)
+    .sort((a, b) => {
+      if (a.online !== b.online) return a.online ? -1 : 1
+      return a.name.localeCompare(b.name)
+    })
 }

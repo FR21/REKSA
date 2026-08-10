@@ -25,7 +25,7 @@ export default function OverviewPage() {
 
   if (summary.isLoading || live.isLoading) return <LoadingState label="Menyiapkan command center..." />
   if (summary.isError || live.isError || !summary.data || !live.data) return <ErrorState retry={() => { void summary.refetch(); void live.refetch() }} />
-  const activeWorkers = workers.length ? workers : live.data.workers
+  const activeWorkers = (workers.length ? workers : live.data.workers).filter((worker) => worker.online)
   const critical = activeWorkers.filter((worker) => worker.risk_level === 'CRITICAL')
   const distribution = ['SAFE', 'MODERATE', 'HIGH', 'CRITICAL'].map((name) => ({ name, value: activeWorkers.filter((worker) => worker.risk_level === name).length }))
   const pieColors = ['#2dd4a3', '#f6c350', '#fb8c45', '#f45454']
