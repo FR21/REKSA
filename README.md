@@ -13,7 +13,7 @@ Secara garis besar, alurnya seperti ini:
 
 ```mermaid
 flowchart LR
-  I[Smart Helmet (ESP32) / Simulator] -->|MQTT| M[Mosquitto]
+  I["Smart Helmet (ESP32) / Simulator"] -->|MQTT| M[Mosquitto]
   M --> B[FastAPI Backend]
   B <--> D[(PostgreSQL)]
   B -->|REST + WebSocket| R[React Command Center]
