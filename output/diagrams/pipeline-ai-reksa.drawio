@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net" modified="2026-08-17T20:00:00.000Z" agent="Codex" version="24.7.17" type="device">
+  <diagram id="reksa-ai-pipeline" name="Pipeline AI REKSA">
+    <mxGraphModel dx="1600" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <mxCell id="title" value="EVIDENCE GATE PENGEMBANGAN AI REKSA" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontFamily=Arial;fontSize=23;fontStyle=1;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="390" y="25" width="820" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="subtitle" value="Model hanya dilanjutkan apabila terbukti lebih baik daripada baseline pada data yang belum pernah dilihat" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontFamily=Arial;fontSize=12;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="345" y="65" width="910" height="25" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="data-label" value="PERSIAPAN DATA" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=Arial;fontSize=13;fontStyle=1;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="55" y="115" width="220" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="data-group" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#777777;strokeWidth=1.2;dashed=1;dashPattern=6 4;arcSize=5;" vertex="1" parent="1">
+          <mxGeometry x="40" y="145" width="800" height="230" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="raw" value="&lt;b&gt;1. RAW TELEMETRY&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot;&gt;Proximity, gerakan, benturan, dan kondisi lingkungan&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.8;fontFamily=Arial;fontSize=13;fontColor=#000000;spacing=10;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="65" y="205" width="210" height="105" as="geometry"/>
+        </mxCell>
+        <mxCell id="window" value="&lt;b&gt;2. TEMPORAL WINDOW&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot;&gt;Menggabungkan rangkaian data dalam interval waktu tertentu&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.8;fontFamily=Arial;fontSize=13;fontColor=#000000;spacing=10;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="330" y="205" width="210" height="105" as="geometry"/>
+        </mxCell>
+        <mxCell id="features" value="&lt;b&gt;3. FEATURE ENGINEERING&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot;&gt;Durasi paparan, tren kedekatan, gerakan, dan konteks lingkungan&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.8;fontFamily=Arial;fontSize=13;fontColor=#000000;spacing=10;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="595" y="195" width="220" height="125" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="split-label" value="VALIDASI TANPA KEBOCORAN DATA" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=Arial;fontSize=13;fontStyle=1;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="875" y="115" width="300" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="holdout" value="&lt;b&gt;4. GROUPED HOLDOUT&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot;&gt;Data latih dan data uji dipisahkan berdasarkan peserta atau sesi&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;Mencegah data leakage&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=2;fontFamily=Arial;fontSize=13;fontColor=#000000;spacing=10;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="880" y="195" width="230" height="125" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="model-group" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.5;arcSize=5;" vertex="1" parent="1">
+          <mxGeometry x="1150" y="125" width="390" height="300" as="geometry"/>
+        </mxCell>
+        <mxCell id="model-label" value="5. PERBANDINGAN KANDIDAT" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontFamily=Arial;fontSize=13;fontStyle=1;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="1190" y="142" width="310" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="baseline" value="&lt;b&gt;RULE-BASED BASELINE&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;Patokan minimum yang wajib dikalahkan&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.5;fontFamily=Arial;fontSize=12;fontColor=#000000;spacing=8;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="1185" y="185" width="320" height="62" as="geometry"/>
+        </mxCell>
+        <mxCell id="logistic" value="&lt;b&gt;LOGISTIC REGRESSION&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;Model sederhana dan mudah dijelaskan&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.5;fontFamily=Arial;fontSize=12;fontColor=#000000;spacing=8;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="1185" y="267" width="320" height="62" as="geometry"/>
+        </mxCell>
+        <mxCell id="forest" value="&lt;b&gt;RANDOM FOREST&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;Pembanding untuk pola hubungan nonlinier&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.5;fontFamily=Arial;fontSize=12;fontColor=#000000;spacing=8;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="1185" y="349" width="320" height="62" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="evaluation" value="&lt;b&gt;6. EVALUASI MODEL&lt;/b&gt;&lt;br&gt;&lt;br&gt;Recall&lt;br&gt;F1-score&lt;br&gt;False alarm per jam&lt;br&gt;Brier score" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=2;fontFamily=Arial;fontSize=12;fontColor=#000000;spacing=11;arcSize=8;align=left;" vertex="1" parent="1">
+          <mxGeometry x="1030" y="495" width="220" height="165" as="geometry"/>
+        </mxCell>
+        <mxCell id="calibration" value="&lt;b&gt;7. CALIBRATION&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot;&gt;Memastikan probabilitas prediksi sesuai dengan risiko yang diamati&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=2;fontFamily=Arial;fontSize=12;fontColor=#000000;spacing=10;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="1310" y="515" width="230" height="125" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="chart-placeholder" value="&lt;b&gt;PLACEHOLDER GRAFIK HASIL EKSPERIMEN NYATA&lt;/b&gt;&lt;br&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot;&gt;Masukkan grafik perbandingan:&lt;br&gt;Recall  |  F1-score  |  False alarm/jam  |  Brier score&lt;br&gt;&lt;br&gt;Jangan mengisi nilai sebelum eksperimen selesai.&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#555555;strokeWidth=1.5;dashed=1;dashPattern=7 5;fontFamily=Arial;fontSize=12;fontColor=#000000;spacing=12;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="430" y="485" width="500" height="185" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="gate" value="&lt;b&gt;EVIDENCE&lt;br&gt;GATE&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;Lebih baik dari baseline dan layak diuji lanjut?&lt;/font&gt;" style="rhombus;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=2;fontFamily=Arial;fontSize=12;fontColor=#000000;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="960" y="720" width="190" height="130" as="geometry"/>
+        </mxCell>
+        <mxCell id="registry" value="&lt;b&gt;8. MODEL REGISTRY&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot;&gt;Simpan versi model, metrik, data, dan konfigurasi&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=2;fontFamily=Arial;fontSize=12;fontColor=#000000;spacing=10;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="1200" y="730" width="200" height="110" as="geometry"/>
+        </mxCell>
+        <mxCell id="shadow" value="&lt;b&gt;9. SHADOW MODE&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot;&gt;Prediksi dicatat dan dibandingkan tanpa mengendalikan alarm lokal&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=2;fontFamily=Arial;fontSize=12;fontColor=#000000;spacing=10;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="1440" y="720" width="140" height="130" as="geometry"/>
+        </mxCell>
+        <mxCell id="revise" value="REVISI FEATURE, LABEL, ATAU DATASET" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#555555;strokeWidth=1.5;dashed=1;dashPattern=6 4;fontFamily=Arial;fontSize=11;fontStyle=1;fontColor=#000000;spacing=8;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="585" y="745" width="270" height="75" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="edge-raw-window" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="1" source="raw" target="window"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="edge-window-feature" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="1" source="window" target="features"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="edge-feature-holdout" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="1" source="features" target="holdout"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="edge-holdout-baseline" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;strokeWidth=1.8;endArrow=block;endFill=1;" edge="1" parent="1" source="holdout" target="baseline"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="edge-holdout-logistic" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;strokeWidth=1.8;endArrow=block;endFill=1;" edge="1" parent="1" source="holdout" target="logistic"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="edge-holdout-forest" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;strokeWidth=1.8;endArrow=block;endFill=1;" edge="1" parent="1" source="holdout" target="forest"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="edge-model-eval" value="Bandingkan" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;strokeWidth=2;endArrow=block;endFill=1;fontFamily=Arial;fontSize=11;fontColor=#000000;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="model-group" target="evaluation"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="edge-eval-calibration" value="Model kandidat" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;strokeWidth=2;endArrow=block;endFill=1;fontFamily=Arial;fontSize=11;fontColor=#000000;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="evaluation" target="calibration"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="edge-eval-chart" value="Isi setelah eksperimen" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#555555;strokeWidth=1.5;dashed=1;dashPattern=6 4;endArrow=open;endFill=0;fontFamily=Arial;fontSize=10;fontColor=#000000;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="evaluation" target="chart-placeholder"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="edge-calibration-gate" value="Hasil tervalidasi" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;strokeWidth=2;endArrow=block;endFill=1;fontFamily=Arial;fontSize=11;fontColor=#000000;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="calibration" target="gate"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="edge-gate-registry" value="LULUS" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;strokeWidth=2.5;endArrow=block;endFill=1;fontFamily=Arial;fontSize=11;fontStyle=1;fontColor=#000000;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="gate" target="registry"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="edge-registry-shadow" value="Versi terpilih" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;strokeWidth=2.5;endArrow=block;endFill=1;fontFamily=Arial;fontSize=10;fontColor=#000000;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="registry" target="shadow"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="edge-gate-revise" value="BELUM LULUS" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#555555;strokeWidth=1.5;dashed=1;dashPattern=6 4;endArrow=open;endFill=0;fontFamily=Arial;fontSize=10;fontStyle=1;fontColor=#000000;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="gate" target="revise"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="edge-revise-features" value="Ulangi secara terdokumentasi" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#555555;strokeWidth=1.5;dashed=1;dashPattern=6 4;endArrow=open;endFill=0;fontFamily=Arial;fontSize=10;fontColor=#000000;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="revise" target="features">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="375" y="783"/><mxPoint x="375" y="350"/><mxPoint x="705" y="350"/></Array></mxGeometry>
+        </mxCell>
+
+        <mxCell id="safety-note" value="&lt;b&gt;BATAS KESELAMATAN:&lt;/b&gt; AI hanya membantu prioritas pemeriksaan. Alarm lokal tetap dikendalikan oleh aturan pada Smart Helmet." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.2;fontFamily=Arial;fontSize=11;fontColor=#000000;spacing=8;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="40" y="845" width="870" height="38" as="geometry"/>
+        </mxCell>
+        <mxCell id="caption" value="Gambar 6. Evidence gate pengembangan AI REKSA." style="text;html=1;align=right;verticalAlign=middle;fontFamily=Arial;fontSize=11;fontStyle=2;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="1000" y="845" width="540" height="38" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

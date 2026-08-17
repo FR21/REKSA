@@ -15,6 +15,9 @@ const worker: Worker = {
   temperature: 31, humidity: 70, online: true, last_update: new Date().toISOString(),
   x: 40, y: 40, calculation_source: 'RULE_BASED_SCORING', dominant_factor: 'Paparan bahaya',
   recommended_action: 'Jauhkan pekerja.',
+  ai_advisory: {
+    status: 'AWAITING_LIVE_TELEMETRY', advisory_only: true, generated_at: new Date().toISOString(),
+  },
 }
 
 describe('live monitoring behavior', () => {

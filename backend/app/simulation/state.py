@@ -41,6 +41,11 @@ def build_state(seed: int = 42) -> dict[str, Any]:
             "calculation_source": "RULE_BASED_SCORING",
             "dominant_factor": "Paparan bahaya" if base_score > 40 else "Durasi kerja",
             "recommended_action": "Peringatkan pekerja dan kurangi paparan bahaya." if base_score >= 50 else "Lanjutkan pemantauan normal.",
+            "ai_advisory": {
+                "status": "AWAITING_LIVE_TELEMETRY",
+                "advisory_only": True,
+                "generated_at": now_iso(),
+            },
         })
 
     devices: list[dict[str, Any]] = []

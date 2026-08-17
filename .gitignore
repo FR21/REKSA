@@ -14,3 +14,9 @@ frontend/vite.config.js
 frontend/vite.config.d.ts
 mosquitto/data/*
 !mosquitto/data/.gitkeep
+arduino/**/secrets.h
+bridge/.env
+bridge/data/
+.env.hivemq
+secrets/
+.firebaserc

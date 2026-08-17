@@ -1,0 +1,172 @@
+{
+  "input": "/home/wielio/Downloads/REKSA_Proposal_GEMASTIK_XIX_2026 (2).docx",
+  "fonts_by_char_count": {
+    "Times New Roman": 27416,
+    "Cardo": 536,
+    "Gungsuh": 36
+  },
+  "direct_run_formatting_runs": 634,
+  "direct_paragraph_formatting_paragraphs": 201,
+  "heading_like_paragraphs_not_heading_style": [
+    {
+      "para_index": 3,
+      "text": "PROPOSAL BABAK PENYISIHAN",
+      "style": "normal"
+    },
+    {
+      "para_index": 5,
+      "text": "GEMASTIK XIX / 2026 \u00b7 PIRANTI CERDAS, SISTEM BENAM & IOT",
+      "style": "normal"
+    },
+    {
+      "para_index": 9,
+      "text": "UNIVERSITAS GUNADARMA 2026",
+      "style": "normal"
+    },
+    {
+      "para_index": 61,
+      "text": "Lapisan Field",
+      "style": "normal"
+    },
+    {
+      "para_index": 63,
+      "text": "Local Safety Layer",
+      "style": "normal"
+    },
+    {
+      "para_index": 66,
+      "text": "IoT Monitoring Layer",
+      "style": "normal"
+    },
+    {
+      "para_index": 69,
+      "text": "AI Supervision Layer",
+      "style": "normal"
+    },
+    {
+      "para_index": 86,
+      "text": "Aman   \u2192   Waspada   \u2192   Bahaya   \u2192   Keluar Zona",
+      "style": "normal"
+    },
+    {
+      "para_index": 112,
+      "text": "Unsafe Proximity Event   \u2192   Candidate Near-Miss   \u2192   Verified Near-Miss",
+      "style": "normal"
+    },
+    {
+      "para_index": 171,
+      "text": "https://youtu.be/aq8y6m_AiCI",
+      "style": "normal"
+    },
+    {
+      "para_index": 193,
+      "text": "NAMA TIM",
+      "style": "normal"
+    },
+    {
+      "para_index": 195,
+      "text": "PERGURUAN TINGGI",
+      "style": "normal"
+    },
+    {
+      "para_index": 197,
+      "text": "KETUA TIM",
+      "style": "normal"
+    },
+    {
+      "para_index": 199,
+      "text": "KATEGORI LOMBA",
+      "style": "normal"
+    },
+    {
+      "para_index": 201,
+      "text": "ANGGOTA TIM",
+      "style": "normal"
+    },
+    {
+      "para_index": 203,
+      "text": "DOSEN PENDAMPING",
+      "style": "normal"
+    },
+    {
+      "para_index": 205,
+      "text": "No",
+      "style": "normal"
+    },
+    {
+      "para_index": 206,
+      "text": "Urgensi Karya",
+      "style": "normal"
+    },
+    {
+      "para_index": 207,
+      "text": "Tujuan Pengembangan",
+      "style": "normal"
+    },
+    {
+      "para_index": 223,
+      "text": "Pemangku Kepentingan",
+      "style": "normal"
+    }
+  ],
+  "examples": {
+    "direct_paragraph_formatting": [
+      {
+        "para_index": 1,
+        "text": "",
+        "style": "normal"
+      },
+      {
+        "para_index": 2,
+        "text": "",
+        "style": "normal"
+      },
+      {
+        "para_index": 3,
+        "text": "PROPOSAL BABAK PENYISIHAN",
+        "style": "normal"
+      },
+      {
+        "para_index": 4,
+        "text": "PAGELARAN MAHASISWA NASIONAL BIDANG TIK",
+        "style": "normal"
+      },
+      {
+        "para_index": 5,
+        "text": "GEMASTIK XIX / 2026 \u00b7 PIRANTI CERDAS, SISTEM BENAM & IOT",
+        "style": "normal"
+      }
+    ],
+    "direct_run_formatting": [
+      {
+        "para_index": 3,
+        "run_text": "PROPOSAL BABAK PENYISIHAN",
+        "style": "normal"
+      },
+      {
+        "para_index": 4,
+        "run_text": "PAGELARAN MAHASISWA NASIONAL BIDANG TIK",
+        "style": "normal"
+      },
+      {
+        "para_index": 5,
+        "run_text": "GEMASTIK XIX / 2026 \u00b7 PIRANTI CERDAS, SISTEM BENAM & IOT",
+        "style": "normal"
+      },
+      {
+        "para_index": 7,
+        "run_text": "Radar Evaluasi K3 dan Sensor Ancaman Kerja Berbasis AI-IoT untuk Dynamic Hazard ",
+        "style": "normal"
+      },
+      {
+        "para_index": 7,
+        "run_text": ".",
+        "style": "normal"
+      }
+    ]
+  },
+  "notes": [
+    "Direct formatting is not always wrong, but it often causes inconsistent output when templates change.",
+    "Heading-like paragraphs not using Heading styles can break TOC and accessibility."
+  ]
+}

@@ -169,6 +169,17 @@ async def handle_mqtt_message(topic: str, payload: dict[str, Any]) -> None:
                         "recommended_action": "Periksa ventilasi dan kurangi paparan pekerja.",
                     })
 
+                # AI is advisory-only. Local safety rules above remain authoritative.
+                from app.services.runtime import ai_advisory_service
+
+                ai_advisory = await ai_advisory_service.analyze_helmet_payload(payload)
+                worker["ai_advisory"] = ai_advisory
+                if ai_advisory.get("status") == "READY":
+                    await websocket_manager.broadcast(
+                        "ai.forecast.updated",
+                        {"worker_id": worker_id, "advisory": ai_advisory},
+                    )
+
                 # Broadcast updated worker
                 await websocket_manager.broadcast("worker.updated", worker)
 

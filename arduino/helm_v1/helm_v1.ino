@@ -1,20 +1,20 @@
 #include <Arduino.h>
+#include <NimBLEDevice.h>
 
-// Library BLE bawaan ESP32
-#include <BLEDevice.h>
-#include <BLEUtils.h>
-#include <BLEScan.h>
-#include <BLEAdvertisedDevice.h>
-
-// Library DHT22
 #include <DHT.h>
-
-// Library WiFi & MQTT
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 #include <time.h>
 #include <Wire.h>
+#include <limits.h>
+
+#if __has_include("secrets.h")
+#include "secrets.h"
+#else
+#error "Salin secrets.example.h menjadi secrets.h dan isi kredensial WiFi/HiveMQ."
+#endif
 
 // =====================================================
 // IDENTITAS PERANGKAT
@@ -28,18 +28,43 @@ const char* HAZARD_PREFIX = "REKSA_HAZARD_";
 // KONFIGURASI WIFI & MQTT
 // =====================================================
 
-const char* WIFI_SSID = "Shaaapayaaa";
-const char* WIFI_PASSWORD = "abcd12345";
-const char* MQTT_SERVER = "10.168.239.41"; // Ganti dengan IP Host/Broker
-const int MQTT_PORT = 1883;
+const char* WIFI_SSID = REKSA_WIFI_SSID;
+const char* WIFI_PASSWORD = REKSA_WIFI_PASSWORD;
+const char* MQTT_SERVER = REKSA_MQTT_HOST;
+const int MQTT_PORT = REKSA_MQTT_PORT;
+const char* MQTT_USERNAME = REKSA_MQTT_USERNAME;
+const char* MQTT_PASSWORD = REKSA_MQTT_PASSWORD;
 const char* NTP_SERVER = "pool.ntp.org";
+const char* NTP_FALLBACK_1 = "time.google.com";
+const char* NTP_FALLBACK_2 = "time.cloudflare.com";
 constexpr long GMT_OFFSET_SECONDS = 0;
 constexpr int DAYLIGHT_OFFSET_SECONDS = 0;
+constexpr time_t MIN_VALID_TLS_EPOCH = 1700000000; // 2023-11-14 UTC
+constexpr unsigned long NTP_SYNC_TIMEOUT_MS = 15000;
 
+#if REKSA_MQTT_USE_TLS
+WiFiClientSecure espClient;
+#else
 WiFiClient espClient;
+#endif
 PubSubClient mqttClient(espClient);
 bool timeSyncStarted = false;
 constexpr uint16_t MQTT_BUFFER_SIZE = 1536;
+constexpr uint8_t TELEMETRY_QUEUE_CAPACITY = 12;
+constexpr unsigned long TELEMETRY_RETRY_INTERVAL_MS = 3000;
+
+struct PendingTelemetry {
+  bool used;
+  char messageId[64];
+  char topic[96];
+  char payload[1024];
+  unsigned long queuedAt;
+  unsigned long lastAttemptAt;
+  uint8_t attempts;
+};
+
+PendingTelemetry telemetryQueue[TELEMETRY_QUEUE_CAPACITY] = {};
+uint32_t telemetryDroppedCount = 0;
 
 // =====================================================
 // KONFIGURASI PIN
@@ -159,7 +184,7 @@ constexpr uint8_t RSSI_WINDOW_SIZE = 5;
 constexpr uint8_t REQUIRED_CONSECUTIVE_READINGS = 2;
 constexpr int RSSI_HYSTERESIS_DB = 3;
 
-BLEScan* bleScan = nullptr;
+NimBLEScan* bleScan = nullptr;
 
 // =====================================================
 // KONFIGURASI POLA WARNING
@@ -494,6 +519,14 @@ void updateStableZone(HazardData& hazard) {
     Serial.print(zoneToString(previousZone));
     Serial.print(" -> ");
     Serial.println(zoneToString(hazard.zone));
+    Serial.print("METRIC,ZONE_TRANSITION,");
+    Serial.print(hazard.name);
+    Serial.print(",");
+    Serial.print(zoneToString(previousZone));
+    Serial.print(",");
+    Serial.print(zoneToString(hazard.zone));
+    Serial.print(",");
+    Serial.println(millis());
   }
 }
 
@@ -556,31 +589,28 @@ void removeInactiveHazards() {
 // CALLBACK BLE
 // =====================================================
 
-class ScanCallbacks : public BLEAdvertisedDeviceCallbacks {
+class ScanCallbacks : public NimBLEScanCallbacks {
   void onResult(
-    BLEAdvertisedDevice advertisedDevice
+    const NimBLEAdvertisedDevice* advertisedDevice
   ) override {
-    if (!advertisedDevice.haveName()) {
+    if (!advertisedDevice->haveName()) {
       return;
     }
 
     const String deviceName =
-      advertisedDevice.getName().c_str();
+      advertisedDevice->getName().c_str();
 
     if (!deviceName.startsWith(HAZARD_PREFIX)) {
       return;
     }
 
     const String macAddress =
-      advertisedDevice
-        .getAddress()
-        .toString()
-        .c_str();
+      advertisedDevice->getAddress().toString().c_str();
 
     updateHazard(
       deviceName,
       macAddress,
-      advertisedDevice.getRSSI()
+      advertisedDevice->getRSSI()
     );
   }
 };
@@ -840,6 +870,14 @@ void warningTask(void* parameter) {
         setBuzzer(true);
         setVibration(true);
       }
+      Serial.print("METRIC,ALARM_APPLIED,");
+      Serial.print(priority);
+      Serial.print(",");
+      Serial.print(currentTime);
+      Serial.print(",wifi=");
+      Serial.print(WiFi.status() == WL_CONNECTED ? 1 : 0);
+      Serial.print(",mqtt=");
+      Serial.println(mqttClient.connected() ? 1 : 0);
     }
 
     if (priority == 3) {
@@ -1069,6 +1107,38 @@ void printWarningStatus() {
 // WIFI & MQTT PROCEDURES
 // =====================================================
 
+bool waitForValidTlsClock(unsigned long timeoutMs) {
+#if !REKSA_MQTT_USE_TLS
+  return true;
+#else
+  if (time(nullptr) >= MIN_VALID_TLS_EPOCH) {
+    return true;
+  }
+
+  Serial.print("Menunggu sinkronisasi waktu NTP");
+  const unsigned long startedAt = millis();
+  while (time(nullptr) < MIN_VALID_TLS_EPOCH && millis() - startedAt < timeoutMs) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println();
+
+  if (time(nullptr) < MIN_VALID_TLS_EPOCH) {
+    Serial.println("Waktu NTP belum valid; koneksi MQTT TLS ditunda.");
+    return false;
+  }
+
+  struct tm utcTime;
+  char formattedTime[32];
+  const time_t now = time(nullptr);
+  gmtime_r(&now, &utcTime);
+  strftime(formattedTime, sizeof(formattedTime), "%Y-%m-%dT%H:%M:%SZ", &utcTime);
+  Serial.print("Waktu UTC tersinkron: ");
+  Serial.println(formattedTime);
+  return true;
+#endif
+}
+
 void setupWiFi() {
   delay(10);
   Serial.println();
@@ -1095,10 +1165,13 @@ void setupWiFi() {
       configTime(
         GMT_OFFSET_SECONDS,
         DAYLIGHT_OFFSET_SECONDS,
-        NTP_SERVER
+        NTP_SERVER,
+        NTP_FALLBACK_1,
+        NTP_FALLBACK_2
       );
       timeSyncStarted = true;
     }
+    waitForValidTlsClock(NTP_SYNC_TIMEOUT_MS);
   } else {
     Serial.println("");
     Serial.println("WiFi gagal terhubung (akan dicoba kembali).");
@@ -1116,6 +1189,21 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   if (error) {
     Serial.print("Gagal parsing JSON: ");
     Serial.println(error.f_str());
+    return;
+  }
+
+  if (String(topic).endsWith("/telemetry/ack")) {
+    const char* acknowledgedId = doc["message_id"];
+    if (acknowledgedId != nullptr) {
+      for (uint8_t i = 0; i < TELEMETRY_QUEUE_CAPACITY; i++) {
+        if (telemetryQueue[i].used && strcmp(telemetryQueue[i].messageId, acknowledgedId) == 0) {
+          telemetryQueue[i].used = false;
+          Serial.print("Telemetry diterima backend/PubSub: ");
+          Serial.println(acknowledgedId);
+          break;
+        }
+      }
+    }
     return;
   }
 
@@ -1145,13 +1233,29 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
 }
 
 void reconnectMQTT() {
+  if (!waitForValidTlsClock(0)) {
+    delay(2000);
+    return;
+  }
+
+  IPAddress brokerIp;
+  Serial.print("Resolving broker MQTT: ");
+  Serial.println(MQTT_SERVER);
+  if (!WiFi.hostByName(MQTT_SERVER, brokerIp)) {
+    Serial.println("DNS broker gagal; periksa internet/hotspot.");
+    delay(2000);
+    return;
+  }
+  Serial.print("Broker IP: ");
+  Serial.println(brokerIp);
+
   int attempts = 0;
   while (!mqttClient.connected() && attempts < 3) {
     Serial.print("Menghubungkan ke Broker MQTT...");
     String clientId = "ReksaHelmet-W01-";
     clientId += String(random(0xffff), HEX);
 
-    if (mqttClient.connect(clientId.c_str())) {
+    if (mqttClient.connect(clientId.c_str(), MQTT_USERNAME, MQTT_PASSWORD)) {
       Serial.println("Terhubung!");
       
       // Subscribe ke topik warning
@@ -1161,13 +1265,86 @@ void reconnectMQTT() {
       mqttClient.subscribe(topic.c_str());
       Serial.print("Subscribed ke topic: ");
       Serial.println(topic);
+
+      String ackTopic = "REKSA/helmet/";
+      ackTopic += WORKER_ID;
+      ackTopic += "/telemetry/ack";
+      mqttClient.subscribe(ackTopic.c_str(), 1);
+      Serial.print("Subscribed ACK topic: ");
+      Serial.println(ackTopic);
     } else {
       Serial.print("Gagal, status=");
       Serial.print(mqttClient.state());
+      Serial.print(" free_heap=");
+      Serial.print(ESP.getFreeHeap());
+#if REKSA_MQTT_USE_TLS
+      char tlsError[160] = {};
+      const int tlsErrorCode = espClient.lastError(tlsError, sizeof(tlsError));
+      Serial.print(" tls_error=");
+      Serial.print(tlsErrorCode);
+      Serial.print(" (");
+      Serial.print(tlsError);
+      Serial.print(")");
+      espClient.stop();
+#endif
       Serial.println(" coba lagi dalam 2 detik...");
       delay(2000);
       attempts++;
     }
+  }
+}
+
+void enqueueTelemetry(const char* messageId, const char* topic, const char* payload) {
+  int slot = -1;
+  unsigned long oldestAt = ULONG_MAX;
+  int oldestSlot = 0;
+  for (uint8_t i = 0; i < TELEMETRY_QUEUE_CAPACITY; i++) {
+    if (!telemetryQueue[i].used) {
+      slot = i;
+      break;
+    }
+    if (telemetryQueue[i].queuedAt < oldestAt) {
+      oldestAt = telemetryQueue[i].queuedAt;
+      oldestSlot = i;
+    }
+  }
+  if (slot < 0) {
+    slot = oldestSlot;
+    telemetryDroppedCount++;
+    Serial.println("PERINGATAN: buffer telemetry penuh; record tertua diganti.");
+  }
+  PendingTelemetry& item = telemetryQueue[slot];
+  item.used = true;
+  strlcpy(item.messageId, messageId, sizeof(item.messageId));
+  strlcpy(item.topic, topic, sizeof(item.topic));
+  strlcpy(item.payload, payload, sizeof(item.payload));
+  item.queuedAt = millis();
+  item.lastAttemptAt = 0;
+  item.attempts = 0;
+}
+
+void flushTelemetryQueue() {
+  if (!mqttClient.connected()) {
+    return;
+  }
+  const unsigned long now = millis();
+  for (uint8_t i = 0; i < TELEMETRY_QUEUE_CAPACITY; i++) {
+    PendingTelemetry& item = telemetryQueue[i];
+    if (!item.used || (item.lastAttemptAt != 0 && now - item.lastAttemptAt < TELEMETRY_RETRY_INTERVAL_MS)) {
+      continue;
+    }
+    item.lastAttemptAt = now;
+    item.attempts++;
+    if (mqttClient.publish(item.topic, item.payload)) {
+      Serial.print("Telemetry dikirim, menunggu ACK: ");
+      Serial.print(item.messageId);
+      Serial.print(" attempt=");
+      Serial.println(item.attempts);
+    } else {
+      Serial.print("Publish gagal; tetap tersimpan di buffer: ");
+      Serial.println(item.messageId);
+    }
+    break;
   }
 }
 void writeIsoTimestamp(char* buffer, size_t bufferSize) {
@@ -1196,13 +1373,9 @@ void writeIsoTimestamp(char* buffer, size_t bufferSize) {
 }
 
 void publishSensorData() {
-  if (!mqttClient.connected()) {
-    return;
-  }
-
   StaticJsonDocument<1024> doc;
   
-  String msgId = "msg-" + String(millis());
+  String msgId = "HELMET-" + String(WORKER_ID) + "-" + String((uint32_t)ESP.getEfuseMac(), HEX) + "-" + String(millis());
   char timestamp[25];
   writeIsoTimestamp(timestamp, sizeof(timestamp));
 
@@ -1265,25 +1438,14 @@ void publishSensorData() {
   topic += WORKER_ID;
   topic += "/sensor";
 
-  if (mqttClient.publish(topic.c_str(), buffer)) {
-    Serial.print("Mempublikasikan sensor ke ");
-    Serial.print(topic);
-    Serial.print(" (");
-    Serial.print(payloadSize);
-    Serial.print(" bytes)");
-    Serial.print(": ");
-    Serial.println(buffer);
-  } else {
-    Serial.print("Gagal mempublikasikan sensor ke MQTT. connected=");
-    Serial.print(mqttClient.connected());
-    Serial.print(", state=");
-    Serial.print(mqttClient.state());
-    Serial.print(", payload=");
-    Serial.print(payloadSize);
-    Serial.print(" bytes, buffer=");
-    Serial.print(MQTT_BUFFER_SIZE);
-    Serial.println(" bytes");
-  }
+  enqueueTelemetry(msgId.c_str(), topic.c_str(), buffer);
+  Serial.print("Telemetry masuk buffer: ");
+  Serial.print(msgId);
+  Serial.print(" payload=");
+  Serial.print(payloadSize);
+  Serial.print(" bytes dropped=");
+  Serial.println(telemetryDroppedCount);
+  flushTelemetryQueue();
 }
 
 // =====================================================
@@ -1336,11 +1498,11 @@ void setup() {
     resetHazard(hazards[i]);
   }
 
-  BLEDevice::init(HELMET_NAME);
+  NimBLEDevice::init(HELMET_NAME);
 
-  bleScan = BLEDevice::getScan();
+  bleScan = NimBLEDevice::getScan();
 
-  bleScan->setAdvertisedDeviceCallbacks(
+  bleScan->setScanCallbacks(
     new ScanCallbacks(),
     true
   );
@@ -1348,8 +1510,10 @@ void setup() {
   bleScan->setActiveScan(true);
   bleScan->setInterval(100);
   bleScan->setWindow(80);
+  bleScan->setMaxResults(0);
 
-  Serial.println("BLE Scanner aktif");
+  Serial.print("NimBLE Scanner aktif; free_heap=");
+  Serial.println(ESP.getFreeHeap());
 
   const BaseType_t taskCreated = xTaskCreate(
     warningTask,
@@ -1371,6 +1535,10 @@ void setup() {
   mqttClient.setServer(MQTT_SERVER, MQTT_PORT);
   mqttClient.setBufferSize(MQTT_BUFFER_SIZE);
   mqttClient.setCallback(mqttCallback);
+#if REKSA_MQTT_USE_TLS
+  espClient.setCACert(REKSA_MQTT_ROOT_CA);
+  espClient.setHandshakeTimeout(20);
+#endif
 }
 
 // =====================================================
@@ -1391,6 +1559,7 @@ void loop() {
   // Jalankan MQTT Loop
   if (mqttClient.connected()) {
     mqttClient.loop();
+    flushTelemetryQueue();
   }
 
   Serial.println();
@@ -1398,7 +1567,7 @@ void loop() {
     "Memindai seluruh hazard REKSA..."
   );
 
-  bleScan->start(BLE_SCAN_SECONDS, false);
+  bleScan->getResults(BLE_SCAN_SECONDS * 1000UL, false);
 
   removeInactiveHazards();
   updateWarningPriority();
@@ -1417,8 +1586,6 @@ void loop() {
     lastPublish = millis();
     publishSensorData();
   }
-
-  bleScan->clearResults();
 
   delay(100);
 }

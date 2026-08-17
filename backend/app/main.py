@@ -1,10 +1,12 @@
 import asyncio
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime, timedelta
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import models  # noqa: F401
+from app.api.v1.cloud_ingest import router as cloud_ingest_router
 from app.api.v1.health import router as health_router
 from app.api.v1.router import router as api_router
 from app.core.config import settings
@@ -13,9 +15,10 @@ from app.database.seed import seed_database
 from app.database.session import SessionLocal
 from app.services.mqtt_handler import handle_mqtt_message
 from app.services.mqtt_service import MQTTService
+from app.services.runtime import ai_advisory_service
 from app.services.websocket_service import websocket_manager
 from app.simulation.engine import simulation_engine
-from datetime import UTC, datetime, timedelta
+
 
 async def monitor_inactivity() -> None:
     while True:
@@ -43,7 +46,18 @@ async def monitor_inactivity() -> None:
                 if now - last_update > threshold:
                     hazard["online"] = False
 
-mqtt_service = MQTTService(settings.mqtt_host, settings.mqtt_port, handler=handle_mqtt_message)
+mqtt_service = MQTTService(
+    settings.mqtt_host,
+    settings.mqtt_port,
+    handler=handle_mqtt_message,
+    username=settings.mqtt_username,
+    password=settings.mqtt_password,
+    use_tls=settings.mqtt_tls,
+    ca_cert=settings.mqtt_ca_cert,
+    client_id=settings.mqtt_client_id,
+    ack_enabled=settings.mqtt_ack_enabled,
+    dedup_max_messages=settings.mqtt_dedup_max_messages,
+)
 
 
 @asynccontextmanager
@@ -51,12 +65,15 @@ async def lifespan(_: FastAPI):
     Base.metadata.create_all(bind=engine)
     with SessionLocal() as db:
         seed_database(db)
-    mqtt_service.loop = asyncio.get_running_loop()
-    mqtt_service.start()
+    if settings.mqtt_enabled:
+        mqtt_service.loop = asyncio.get_running_loop()
+        mqtt_service.start()
     inactivity_task = asyncio.create_task(monitor_inactivity())
     yield
     inactivity_task.cancel()
-    mqtt_service.stop()
+    if settings.mqtt_enabled:
+        mqtt_service.stop()
+    await ai_advisory_service.close()
 
 
 app = FastAPI(
@@ -73,6 +90,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(health_router, prefix=settings.api_prefix)
+app.include_router(cloud_ingest_router, prefix=settings.api_prefix)
 app.include_router(api_router, prefix=settings.api_prefix)
 
 

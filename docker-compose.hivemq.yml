@@ -1,0 +1,10 @@
+services:
+  backend:
+    environment:
+      MQTT_HOST: ${MQTT_HOST:?Copy .env.hivemq.example to .env.hivemq}
+      MQTT_PORT: ${MQTT_PORT:-8883}
+      MQTT_USERNAME: ${MQTT_USERNAME:?Set MQTT_USERNAME in .env.hivemq}
+      MQTT_PASSWORD: ${MQTT_PASSWORD:?Set MQTT_PASSWORD in .env.hivemq}
+      MQTT_TLS: ${MQTT_TLS:-true}
+      MQTT_CA_CERT: ${MQTT_CA_CERT:-}
+      MQTT_CLIENT_ID: ${MQTT_CLIENT_ID:-reksa-backend-demo}

@@ -1,0 +1,51 @@
+{
+  "window_id": "LIVE-W01-20260807T081500Z",
+  "worker_id": "W01",
+  "helmet_id": "HELMET-W01",
+  "hazard_id": "F01",
+  "hazard_type": "FORKLIFT",
+  "repeated_exposure_count": 3,
+  "samples": [
+    {
+      "timestamp": "2026-08-07T08:15:00Z",
+      "rssi": -78,
+      "packet_received": true,
+      "acceleration": {"x": 0.02, "y": 0.03, "z": 1.01},
+      "gyroscope": {"x": 2.0, "y": 1.0, "z": 3.0},
+      "orientation": {"pitch": 2.0, "roll": 1.0, "yaw": 10.0},
+      "proximity_level": "MODERATE",
+      "hazard_active": true
+    },
+    {
+      "timestamp": "2026-08-07T08:15:02Z",
+      "rssi": -71,
+      "packet_received": true,
+      "acceleration": {"x": 0.20, "y": 0.10, "z": 1.08},
+      "gyroscope": {"x": 10.0, "y": 5.0, "z": 8.0},
+      "orientation": {"pitch": 4.0, "roll": 2.0, "yaw": 13.0},
+      "proximity_level": "HIGH",
+      "hazard_active": true
+    },
+    {
+      "timestamp": "2026-08-07T08:15:04Z",
+      "rssi": -64,
+      "packet_received": true,
+      "acceleration": {"x": 1.70, "y": 0.90, "z": 1.80},
+      "gyroscope": {"x": 130.0, "y": 95.0, "z": 80.0},
+      "orientation": {"pitch": 18.0, "roll": 9.0, "yaw": 21.0},
+      "proximity_level": "HIGH",
+      "hazard_active": true
+    },
+    {
+      "timestamp": "2026-08-07T08:15:06Z",
+      "rssi": -57,
+      "packet_received": true,
+      "acceleration": {"x": 2.60, "y": 1.20, "z": 1.50},
+      "gyroscope": {"x": 190.0, "y": 80.0, "z": 70.0},
+      "orientation": {"pitch": 27.0, "roll": 15.0, "yaw": 28.0},
+      "proximity_level": "CRITICAL",
+      "hazard_active": true
+    }
+  ]
+}
+

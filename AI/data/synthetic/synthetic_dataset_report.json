@@ -1,0 +1,87 @@
+{
+  "generated_at": "2026-08-07T10:00:28.945998+00:00",
+  "generator_seed": 20260807,
+  "warning": "SYNTHETIC DATA ONLY. Suitable for pipeline development and prototyping; not valid evidence of real-world safety performance.",
+  "forecasting_windows": {
+    "rows": 15000,
+    "participants": 40,
+    "participant_session_groups": 480,
+    "target_distribution": {
+      "0": 10657,
+      "1": 4343
+    },
+    "participants_with_both_targets": 40,
+    "scenario_distribution": {
+      "NORMAL_PASSAGE": 2901,
+      "NORMAL_WORK_NEAR_MACHINE": 2042,
+      "FORKLIFT_APPROACH": 1811,
+      "RSSI_FLUCTUATION": 1379,
+      "FORKLIFT_CROSSING": 1359,
+      "SUDDEN_MOTION_AFTER_WARNING": 1046,
+      "PROLONGED_DANGER": 1027,
+      "REPEATED_EXPOSURE": 800,
+      "IMPACT_CANDIDATE": 736,
+      "HAZARD_INACTIVE": 594,
+      "FALL_CANDIDATE": 577,
+      "BLE_PACKET_LOSS": 458,
+      "AIR_QUALITY_DEGRADATION": 270
+    },
+    "checks": {
+      "unique_window_id": true,
+      "no_missing_values": true,
+      "recording_date_matches_timestamp": true,
+      "rssi_order_valid": true,
+      "durations_fit_window": true,
+      "binary_target": true,
+      "synthetic_origin_only": true
+    }
+  },
+  "priority_events": {
+    "rows": 6000,
+    "participants": 40,
+    "participant_session_groups": 480,
+    "priority_distribution": {
+      "LOW": 3336,
+      "MEDIUM": 2178,
+      "HIGH": 486
+    },
+    "participants_with_all_priority_classes": 40,
+    "verification_distribution": {
+      "SYNTHETIC_NORMAL_ACTIVITY": 2026,
+      "SIMULATED_HIGH_RISK": 1352,
+      "SIMULATED_UNSAFE_PROXIMITY": 698,
+      "SYNTHETIC_FALSE_ALARM": 542,
+      "SIMULATED_IMPACT_CANDIDATE": 297,
+      "SIMULATED_REPEATED_EXPOSURE": 280,
+      "SIMULATED_FALL_CANDIDATE": 263,
+      "SYNTHETIC_HAZARD_INACTIVE": 223,
+      "SYNTHETIC_INSUFFICIENT_EVIDENCE": 199,
+      "SIMULATED_ENVIRONMENTAL_RISK": 120
+    },
+    "scenario_distribution": {
+      "NORMAL_PASSAGE": 1150,
+      "NORMAL_WORK_NEAR_MACHINE": 876,
+      "FORKLIFT_APPROACH": 698,
+      "FORKLIFT_CROSSING": 545,
+      "RSSI_FLUCTUATION": 542,
+      "SUDDEN_MOTION_AFTER_WARNING": 420,
+      "PROLONGED_DANGER": 387,
+      "IMPACT_CANDIDATE": 297,
+      "REPEATED_EXPOSURE": 280,
+      "FALL_CANDIDATE": 263,
+      "HAZARD_INACTIVE": 223,
+      "BLE_PACKET_LOSS": 199,
+      "AIR_QUALITY_DEGRADATION": 120
+    },
+    "checks": {
+      "unique_event_id": true,
+      "no_missing_values": true,
+      "recording_date_matches_timestamp": true,
+      "rssi_order_valid": true,
+      "durations_fit_event": true,
+      "all_priority_classes": true,
+      "no_verified_near_miss_claim": true,
+      "synthetic_origin_only": true
+    }
+  }
+}

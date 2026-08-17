@@ -1,0 +1,851 @@
+       PROPOSAL GEMASTIK IOT
+
+
+MAPS TRACKING NAVIGASI TITIK POINT LOKASI
+ UNTUK PENANGGULANGAN PASCA BENCANA
+                            JUDUL
+
+
+
+
+Nama Tim : Mulai aja dulu
+Asal Tim : Universitas Gunadarma
+
+
+Anggota :
+1. Naufal Maulana Al-Ghifari Irawan   50420956
+2. Ghiyats Ibnu Syahied               50421557
+3. Muhammad Hauzan Dini Fakhri        50421984
+
+
+Dosen Pendamping :
+Dr. Mara Nugraha, SKom., MMSI
+                                ABSTRAK
+
+
+MAPS      TRACKING        NAVIGASI       TITIK     POINT      LOKASI      UNTUK
+PENANGGULANGAN PASCA BENCANA
+Kata kunci : Internet of Things, Website Dashboard , Algoritma A*, Machine
+Learning, MQTT.
+
+
+(24 Halaman)
+
+
+Proyek ini bertujuan mengatasi tantangan yang dihadapi oleh Tim Search and Rescue
+(SAR) melalui pengembangan solusi inovatif berupa Alat Skala Edukasi, Evacuating
+Map System, dan Website Monitoring. Dengan fokus pada pengoptimalan
+penggunaan sumber daya dan peningkatan efisiensi operasional, proyek ini berhasil
+menciptakan integrasi yang kokoh antara alat-alat tersebut. Hasilnya, Website
+Monitoring yang sederhana namun efisien membantu Tim SAR melihat dan
+menganalisis hasil penyisiran, sedangkan Evacuating Map System memberikan
+informasi real-time untuk meningkatkan responsibilitas tim dalam menghadapi situasi
+darurat. Melalui kontribusi ini, proyek magang ini bukan hanya menyelesaikan
+masalah konkret, tetapi juga menciptakan pondasi untuk peningkatan berkelanjutan
+dalam operasional Tim SAR, memberikan dampak positif yang signifikan.
+
+
+Tautan Video Youtube :
+  GEMASTIK XVII Piranti Cerdas - GEMASTIK24 385419639 - Mulai Aja Dulu 'MAPS TRA…
+
+
+
+ Daftar Pustaka (2017 – 2019)
+
+
+
+
+                                                                                      2
+                                                       DAFTAR ISI
+
+JUDUL............................................................................................................................................ 1
+ABSTRAK...................................................................................................................................... 2
+DAFTAR ISI...................................................................................................................................3
+LATAR BELAKANG.................................................................................................................... 4
+TUJUAN DAN MANFAAT...........................................................................................................6
+  Tujuan:....................................................................................................................................... 6
+  Manfaat:..................................................................................................................................... 6
+METODE DASAR PENGEMBANGAN KARYA...................................................................... 7
+DESAIN MODEL.......................................................................................................................... 9
+  Diagram Blok.............................................................................................................................9
+  Daftar alat yang digunakan :...................................................................................................... 9
+  Foto Rangkaian Sistem Benam :................................................................................................9
+  Rancangan Desain Website Dashboard :................................................................................. 10
+  Foto Implementasi Desain Website :........................................................................................11
+ANALISA FUNGSIONAL..........................................................................................................13
+  Cara kerja................................................................................................................................. 13
+  Batasan Kemampuan Proyek................................................................................................... 13
+RENCANA IMPLEMENTASI................................................................................................... 15
+  Penerapan Implementasi Frontend Website Dashboard...........................................................16
+  Penerapan Implementasi Backend Website Dashboard........................................................... 16
+  Penerapan Implementasi Protokol Komunikasi Sistem Benam ke Website Dashboard..........17
+  Penerapan Implementasi Kode pada Sistem Benam................................................................17
+RENCANA PENGEMBANGAN LANJUTAN......................................................................... 19
+  Tahap 1 (Pengembangan proyek 50% / penyisihan 1).............................................................19
+  Tahap 2 (Pengembangan proyek 75% / Penyisihan 2).............................................................21
+  Tahap 3 (Pengembangan proyek 100% / penyisihan 3)...........................................................23
+DAFTAR PUSTAKA................................................................................................................... 25
+
+
+
+
+                                                                                                                                                 3
+                             LATAR BELAKANG
+       Bencana alam, seperti gempa bumi, banjir, hingga gunung meletus, seringkali
+meninggalkan dampak yang merusak dan mengancam nyawa manusia. Salah satu tantangan
+utama dalam menghadapi bencana adalah pasca bencana itu sendiri seperti mengevakuasi warga
+yang terdampak dengan cepat dan efisien. Proses evakuasi memerlukan koordinasi yang baik
+antara tim penyelamat, informasi yang akurat tentang kondisi lapangan, serta pemahaman yang
+mendalam tentang lokasi evakuasi korban.
+
+
+       Di tengah tekanan waktu serta keterbatasan sumber daya, seringkali sulit bagi tim
+penyelamat untuk mengkoordinasikan upaya mereka secara efektif. Informasi yang tidak lengkap
+atau tidak akurat akan sangat berdampak buruk pada proses evakuasi pasca bencana. Oleh karena
+itu, menjadi penting untuk mencari solusi yang inovatif guna meningkatkan kinerja tim
+penyelamat dalam kondisi pasca bencana tersebut.
+
+
+       Oleh sebab itu, pemanfaatan teknologi Internet of Things (IoT) menawarkan potensi yang
+cukup menjanjikan dalam meningkatkan efisiensi dan efektivitas proses evakuasi pasca bencana.
+Dengan memanfaatkan sensor-sensor dan perangkat cerdas yang terhubung secara online ,
+melacak lokasi tim penyelamat hingga memberikan informasi yang tepat waktu kepada team
+yang bersangkutan.
+
+
+​      Maka dari itu, proyek ini bertujuan untuk mengembangkan sebuah sistem berbasis IoT
+yang dapat membantu dalam proses evakuasi pasca bencana. Sistem ini akan memungkinkan tim
+penyelamat untuk memantau serta melacak lokasi anggota tim penyelamat dan koordinat lokasi
+yang membutuhkan bantuan segera, serta memberikan gambaran tentang rute evakuasi yang
+optimal berdasarkan kondisi terkini.
+
+
+​      Dengan adanya sistem ini, diharapkan proses evakuasi pasca bencana dapat dilakukan
+dengan lebih cepat, efisien, dan aman, sehingga mengurangi risiko korban jiwa. Selain itu, sistem
+ini juga dapat menjadi alat yang berharga dalam upaya pemulihan pasca bencana , dengan
+
+
+
+
+                                                                                               4
+menyediakan data yang diperlukan guna perencanaan dan pengambilan keputusan yang lebih
+baik.
+
+
+
+
+                                                                                     5
+                     TUJUAN DAN MANFAAT
+Tujuan:
+  1.​ Meningkatkan     Kecepatan       Evakuasi   :   Mengembangkan    sistem   IoT   yang
+     memungkinkan tim penyelamat untuk mengidentifikasi dan merespon dengan lebih cepat
+     terhadap situasi pasca bencana, sehingga berimbas pada meningkatnya kecepatan proses
+     evakuasi.
+  2.​ Meningkatkan Koordinasi Tim: Memfasilitasi komunikasi dan koordinasi yang jauh
+     lebih baik antara anggota tim penyelamat melalui pemberian informasi real-time tentang
+     lokasi dan kondisi di lapangan.
+  3.​ Optimalisasi Sumber Daya: Mengoptimalkan penggunaan sumber daya seperti personel
+     hingga peralatan yang digunakan dengan memberikan visibilitas yang lebih baik terhadap
+     kebutuhan evakuasi di berbagai koordinat.
+
+
+
+Manfaat:
+  1.​ Penyelamatan Nyawa: Dengan mempercepat dan mempermudah proses evakuasi,
+     sistem ini dapat menyelamatkan nyawa serta mengurangi risiko cedera yang
+     berkelanjutan pada warga yang terdampak pada bencana yang terjadi.
+  2.​ Efisiensi Operasional: Dengan memfasilitasi koordinasi dan komunikasi yang lebih
+     baik, sistem ini dapat meningkatkan efisiensi operasional tim penyelamat dan
+     mengurangi waktu yang dibutuhkan untuk menyelamatkan korban yang terdampak.
+  3.​ Pemulihan Pasca Bencana: Data yang terkumpul melalui sistem ini juga dapat
+     digunakan untuk mendukung usaha pemulihan pasca bencana, dengan menyediakan
+     informasi yang diperlukan untuk perencanaan dan pengambilan keputusan yang lebih
+     baik dalam tahap pemulihan jangka panjang.
+
+
+
+
+                                                                                         6
+ METODE DASAR PENGEMBANGAN KARYA
+1.​ Studi Literatur:
+       ○​ Melakukan studi literatur guna memahami tentang teknologi Machine Learning
+          (ML), Internet of Things (IoT), dan sistem evakuasi pasca bencana.
+       ○​ Memahami algoritma ML yang telah digunakan dalam proyek serupa untuk
+          optimasi rute dan prediksi area terdampak serta integrasi ML dengan teknologi
+          IoT dalam sistem penyelamatan bencana.
+       ○​ Mempelajari jurnal-jurnal, artikel penelitian, buku teks, dan sumber daya online
+          terkait.
+2.​ Analisis Kebutuhan:
+       ○​ Mengidentifikasi kebutuhan pengguna, tantangan yang dihadapi dalam proses
+          evakuasi pasca bencana seperti keterbatasan waktu, aksesibilitas, dan koordinasi.
+       ○​ Menentukan fungsi-fungsi kunci yang harus dimiliki oleh sistem ML dan IoT
+          yang dikembangkan.
+3.​ Perancangan Sistem:
+       ○​ Merancang arsitektur sistem IoT yang mencakup pemilihan sensor, platform
+          komunikasi, dan infrastruktur jaringan yang akan digunakan.
+       ○​ Perancangan antarmuka pengguna untuk tim penyelamat dan pemangku
+          kepentingan lainnya, yang dapat menampilkan hasil analisis dan rekomendasi dari
+          ML.
+       ○​ Perencanaan antarmuka pengguna.
+4.​ Pengembangan Perangkat Keras:
+       ○​ Mengembangkan       perangkat    keras   yang    diperlukan,   termasuk    sensor,
+          mikrokontroler, dan perangkat pendukung lainnya sesuai dengan spesifikasi yang
+          telah dirancang.
+       ○​ Memastikan bahwa perangkat keras dapat berkomunikasi secara efektif dengan
+          platform yang diintegrasikan dengan ML.
+
+
+
+
+                                                                                              7
+5.​ Pengembangan Perangkat Lunak:
+       ○​ Mengembangkan perangkat lunak guna mengelola data yang diterima dari sensor,
+          melakukan analisis, dan menyediakan informasi kepada pengguna dan tim
+          penyelamat.
+6.​ Pengembangan Model Machine Learning:
+       ○​ Memilih algoritma ML yang sesuai untuk kebutuhan proyek.
+       ○​ Melatih model ML menggunakan dataset yang ada.
+       ○​ Melakukan validasi model ML untuk memastikan keakuratannya dalam
+          memberikan rekomendasi.
+7.​ Integrasi dan Uji Coba:
+       ○​ Mengintegrasikan perangkat keras dan perangkat lunak yang telah dikembangkan.
+       ○​ Melakukan uji coba dan validasi terhadap sistem secara menyeluruh dalam
+          lingkungan simulasi untuk memastikan bahwa semua komponen bekerja dengan
+          baik dan sesuai dengan kebutuhan yang telah diidentifikasi.
+8.​ Evaluasi:
+       ○​ Melakukan evaluasi terhadap kinerja sistem berdasarkan hasil uji coba.
+       ○​ Mengidentifikasi area yang perlu ditingkatkan atau dioptimalkan, kemudian
+          melakukan perbaikan atau peningkatan yang diperlukan.
+       ○​ Melakukan uji coba ulang untuk memastikan bahwa perbaikan tersebut efektif.
+
+
+
+
+                                                                                        8
+                           DESAIN MODEL
+Diagram Blok
+
+
+
+
+Daftar alat yang digunakan :
+  1.​ Microcontroller : ESP32.
+  2.​ Sensor : UBLOX Neo-6M (versi merah).
+  3.​ Tombol push down 3 buah.
+  4.​ Power bank atau AC Adapter.
+
+Foto Rangkaian Sistem Benam :
+
+
+
+
+                                             9
+Rancangan Desain Website Dashboard :
+  ●​ Halaman Utama
+
+
+
+
+  ●​ Halaman Data
+
+
+
+
+                                       10
+  ●​ Halaman About
+
+
+
+
+Foto Implementasi Desain Website :
+  ●​ Halaman Home
+
+
+
+
+                                     11
+●​ Halaman Data
+
+
+
+
+●​ Halaman About
+
+
+
+
+                   12
+                       ANALISA FUNGSIONAL
+Analisa Kebutuhan fungsional merupakan gambaran mengenai fungsi-fungsi yang dapat
+dilakukan oleh sistem ini. Kebutuhan fungsional sistem meliputi:
+    1.​ Sistem IOT dalam skala edukasi.
+    2.​ Perangkat pengoperasian (laptop) harus terinstal php (Xampp) dan Node.js untuk
+        menjalankan Website Dashboard.
+    3.​ Perangkat pengoperasian (laptop) harus terinstal Arduino IDE untuk menjalankan
+        konfigurasi Sistem Benam.
+
+
+Cara kerja
+Sistem Benam :
+    1.​ Sambungkan perangkat ke sumber daya (power bank / ac adapter).
+    2.​ Sesuaikan konfigurasi Wifi di arduino IDE.
+    3.​ Alat siap digunakan.
+
+Website Dashboard :
+  1.​ Pastikan Database sudah di import ke Xampp (mySQL).
+  2.​ Jalankan Program folder Backend di Visual Studio Code ( Command : “ composer start ”
+       ).
+  3.​ Jalankan Program folder Frontend di Visual Studio Code ( Command : “ npm run dev “
+       ).
+  4.​ Website siap digunakan.
+
+Komunikasi antara Sistem Benam dan Website :
+  1.​ Sesuaikan konfigurasi MQTT di arduino IDE.
+  2.​ Sesuaikan konfigurasi MQTT pada folder MQTT di Visual Studio Code, untuk
+      menjalankan program gunakan ( Command : “ node index.js “ ).
+  3.​ Setelah masuk pesan “ MQTT Connected “ maka komunikasi antara alat dan website
+      dashboard sudah siap digunakan.
+
+Batasan Kemampuan Proyek
+
+   1.​ Keterbatasan Jaringan:
+          ○​ Sistem hanya dapat beroperasi dalam jaringan lokal yang sama untuk komunikasi
+             antara alat IoT dan dashboard.
+          ○​ Komunikasi Sistem Benam serta Website Dashboard hanya didukung dalam
+             penggunaan jaringan yang sama.
+          ○​ Kualitas sinyal WiFi dapat mempengaruhi keandalan komunikasi data.
+
+
+                                                                                       13
+       ○​ Koneksi komunikasi antara Sistem Benam dan Website Dashboard menggunakan
+          MQTT dapat terputus apabila sinyal di lokasi percobaan alat sedang buruk.
+       ○​ Perangkat yang menjalankan program website dashboard harus terhubung dalam
+          jaringan yang sama dengan Sistem Benam.
+2.​ Keterbatasan Daya:
+       ○​ Durasi operasional alat IoT bergantung pada kapasitas power bank atau stabilitas
+          sumber daya dari AC adapter.
+       ○​ Daya listrik dari Sistem Benam bersumber dari power bank atau AC adapter.
+3.​ Keterbatasan Sensor:
+       ○​ Sensor hanya dapat menangkap sinyal di luar ruangan, sehingga tidak bisa dipakai
+          untuk penggunaan dalam ruangan.
+
+
+
+
+                                                                                       14
+                RENCANA IMPLEMENTASI
+
+1.​ Persiapan Awal:
+    ●​ Menetapkan tujuan, ruang lingkup, dan jadwal proyek yang jelas.
+    ●​ Mengidentifikasi sumber daya yang diperlukan termasuk perangkat keras, perangkat
+       lunak, dan dana yang tersedia.
+
+2.​ Perancangan Sistem:
+     ●​ Melakukan perancangan arsitektur sistem IoT yang terdiri dari sensor, perangkat
+        keras, perangkat lunak, serta infrastruktur jaringan.
+     ●​ Merancang antarmuka pengguna yang fungsional untuk memfasilitasi penggunaan
+        sistem oleh tim penyelamat.
+
+3.​ Pengembangan Perangkat Keras dan Perangkat Lunak:
+     ●​ Memulai pengembangan perangkat keras (hardware) dan perangkat lunak (software)
+        berdasarkan spesifikasi yang telah dirancang.
+     ●​ Melakukan pengujian reguler untuk memastikan kinerja dan keandalan sistem.
+
+4.​ Integrasi dan Uji Coba:
+     ●​ Mengintegrasikan perangkat keras dan perangkat lunak yang telah dikembangkan ke
+        dalam sistem.
+     ●​ Melakukan uji coba terhadap sistem dalam lingkungan simulasi untuk
+        mengidentifikasi dan memperbaiki potensi masalah.
+
+5.​ Uji Coba Lapangan:
+     ●​ Melakukan uji coba lapangan untuk menguji kinerja sistem dalam kondisi nyata
+        bencana.
+     ●​ Mengumpulkan umpan balik dari tim penyelamat dan warga terdampak untuk
+        evaluasi dan perbaikan lebih lanjut.
+
+6.​ Evaluasi dan Peningkatan:
+     ●​ Melakukan evaluasi terhadap kinerja sistem berdasarkan hasil uji coba lapangan.
+     ●​ Mengidentifikasi area yang perlu ditingkatkan atau dioptimalkan, kemudian
+         melakukan perbaikan atau peningkatan yang diperlukan.
+     ●​ Melakukan evaluasi berkelanjutan untuk memastikan bahwa sistem terus memenuhi
+         kebutuhan dan memberikan manfaat yang diharapkan.
+
+
+
+
+                                                                                    15
+Penerapan Implementasi Frontend Website Dashboard
+Pada tahap implementasi Frontend untuk website dashboard maka dibutuhkan spesifikasi
+penggunaan software dalam pembuatannya, diantaranya sebagai berikut :
+
+                                      SOFTWARE
+        No     Nama Software          Peruntukan           Tautan Dokumentasi
+        1    Visual Studio Code       Code Editor                  link
+        2    React + Vite              Front end                   link
+                                      (Tampilan)
+         3   Tailwind CSS              Front end                   link
+                                      (Tampilan)
+         4   Node js                   Front end                   link
+                                      Middleware
+
+Pembuatan website menggunakan framework React.js yang memudahkan kami dalam
+pembuatan website dengan component perbagian dari desain yang dibuat. Serta Tailwind CSS
+memudahkan kami dalam penerapan Styling pada Website Dashboard.
+
+Penerapan Implementasi Backend Website Dashboard
+Pada tahap implementasi Backend untuk website dashboard maka dibutuhkan spesifikasi
+penggunaan software dalam pembuatannya, diantaranya sebagai berikut :
+
+                                      SOFTWARE
+        No     Nama Software          Peruntukan           Tautan Dokumentasi
+        1    Visual Studio Code       Code Editor                  link
+        2    Slim PHP                  Backend                     link
+                                      (Database)
+         3   Xampp                     Backend                     link
+             (Phpmyadmin)             (Database)
+
+
+Pembuatan website menggunakan framework Slim PHP yang memudahkan kami dalam
+pembuatan website dengan Routing serta Controlling data dari Database dengan cepat & mudah
+dalam pemeliharaan.
+
+
+
+
+                                                                                       16
+Berikut adalah rancangan struktur database yang akan diimplementasikan dalam project ini.
+
+
+
+
+Penerapan Implementasi Protokol Komunikasi Sistem Benam ke
+Website Dashboard
+Pada tahap implementasi Protokol komunikasi Sistem Benam ke website dashboard maka
+dibutuhkan spesifikasi penggunaan software dalam pembuatannya, diantaranya sebagai berikut :
+
+                                        SOFTWARE
+        No      Nama Software           Peruntukan            Tautan Dokumentasi
+        1     Visual Studio Code        Code Editor                   link
+        2     HiveMQ                     Protokol                     link
+                                        Komunikasi
+         3    Node js                   Middleware                    link
+
+Pembuatan protokol komunikasi menggunakan HiveMQ yang memudahkan kami dalam
+pembuatan komunikasi Sistem Benam dengan Website tanpa memiliki batasan data yang
+diterima.
+
+Penerapan Implementasi Kode pada Sistem Benam
+Pada tahap implementasi kode pada Sistem Benam maka dibutuhkan spesifikasi penggunaan
+software dalam pembuatannya, diantaranya sebagai berikut :
+
+                                        SOFTWARE
+        No      Nama Software           Peruntukan            Tautan Dokumentasi
+        1     Arduino IDE               Code Editor                   link
+
+
+
+                                                                                            17
+Pembuatan kode pada Sistem Benam menggunakan Arduino IDE sepenuhnya sebagai
+lingkungan pengembangan yang didukung untuk Sistem Benam.
+
+
+
+
+                                                                         18
+       RENCANA PENGEMBANGAN LANJUTAN
+Dalam pengembangan untuk lomba Gemastik ini kami membagi menjadi 3 tahapan lanjutan
+yang mana hasil akhir nya adalah proyek mencapai tahap 100% dari pengembangan serta
+perencanaan.
+
+Tahap 1 (Pengembangan proyek 50% / penyisihan 1)
+Pada tahap 1 pengembangan proyek ini dianggap tercapai apabila berhasil memenuhi kebutuhan
+sesuai dengan diagram blok berikut :
+
+
+
+
+Pada diagram blok di atas, dijelaskan alur data yang dikirimkan oleh pengguna (tim SAR).
+Dalam kasus ini, tim SAR mengirimkan status melalui tombol (input warna hijau/kuning/merah).
+
+   1.​ Tombol Aman, Tombol Warning, Tombol SOS: Tim SAR dapat memilih salah satu
+       dari tiga tombol ini untuk mengirimkan status mereka. Tombol hijau menunjukkan
+       kondisi aman, kuning untuk peringatan, dan merah untuk situasi darurat (SOS).
+   2.​ OTOMASI 3 Menit: Jika dalam waktu 3 menit sejak terakhir kali tombol ditekan tidak
+       ada input baru dari pengguna, data status serta lokasi (latitude dan longitude) akan secara
+       otomatis dikirim tanpa perlu menekan tombol lagi.
+
+
+
+
+                                                                                               19
+   3.​ GPS (UBLOX NEO-6M): Modul GPS digunakan untuk mendapatkan data lokasi, yaitu
+       latitude dan longitude.
+   4.​ Microcontroller (ESP32): Mikrokontroler ESP32 digunakan untuk mengelola data yang
+       diterima dari tombol dan modul GPS. Mikrokontroler ini akan mempersiapkan data untuk
+       dikirim.
+   5.​ Communication (MQTT): Setelah data dipersiapkan, data latitude dan longitude beserta
+       status akan dikirim melalui protokol komunikasi MQTT (Publish). Data ini kemudian
+       akan diterima oleh penerima MQTT (Subscribe).
+   6.​ Database (Xampp MySQL): Data yang diterima melalui MQTT akan dimasukkan ke
+       dalam database yang menggunakan Xampp dan MySQL.
+   7.​ Backend: Backend server akan mengelola dan memproses data yang ada di dalam
+       database.
+   8.​ Dashboard UI: Data yang telah diproses kemudian akan ditampilkan di Dashboard
+       Website Monitoring untuk pemantauan oleh tim SAR dan pihak terkait lainnya.
+
+Dengan demikian, seluruh proses mulai dari pengiriman status oleh tim SAR hingga penampilan
+data di dashboard website dilakukan secara terintegrasi dan otomatis, termasuk fitur otomasi
+yang mengirim data setiap 3 menit jika tidak ada input baru dari pengguna.
+
+
+
+
+                                                                                         20
+Tahap 2 (Pengembangan proyek 75% / Penyisihan 2)
+
+Pada tahap 2 pengembangan proyek ini dianggap tercapai apabila berhasil memenuhi kebutuhan
+sesuai dengan diagram blok berikut :
+
+
+
+
+Pada diagram blok di atas, dijelaskan alur data yang dikirimkan oleh pengguna (tim SAR)
+dengan menggunakan transmitter-receiver untuk pengiriman data tanpa internet. Dalam tahapan
+lanjutan ini, komunikasi MQTT tetap digunakan untuk mentransfer data dari receiver ke
+database dan dashboard UI. Berikut adalah alur lengkapnya:
+
+   1.​ Tombol Aman, Tombol Warning, Tombol SOS: Tim SAR dapat memilih salah satu
+       dari tiga tombol ini untuk mengirimkan status mereka. Tombol hijau menunjukkan
+       kondisi aman, kuning untuk peringatan, dan merah untuk situasi darurat (SOS).
+   2.​ OTOMASI 3 Menit: Jika dalam waktu 3 menit sejak terakhir kali tombol ditekan tidak
+       ada input baru dari pengguna, data status serta lokasi (latitude dan longitude) akan secara
+       otomatis dikirim tanpa perlu menekan tombol lagi.
+   3.​ GPS (UBLOX NEO-6M): Modul GPS digunakan untuk mendapatkan data lokasi, yaitu
+       latitude dan longitude.
+   4.​ Microcontroller (ESP32): Mikrokontroler ESP32 digunakan untuk mengelola data yang
+       diterima dari tombol dan modul GPS. Mikrokontroler ini akan mempersiapkan data untuk
+       dikirim.
+
+
+
+                                                                                               21
+   5.​ Transmitter (NRF24L01/Lora): Data yang telah dipersiapkan oleh mikrokontroler akan
+       dikirimkan melalui transmitter NRF24L01 atau Lora, yang menggunakan sinyal frekuensi
+       radio untuk mentransmisikan data.
+   6.​ Receiver (NRF24L01/Lora): Data yang dikirimkan oleh transmitter akan diterima oleh
+       receiver yang kompatibel (NRF24L01 atau Lora).
+   7.​ Mikrokontroller (ESP32): Mikrokontroler kedua akan menerima data dari receiver dan
+       mempersiapkannya untuk dikirim menggunakan protokol komunikasi MQTT.
+   8.​ Communication (MQTT): Mikrokontroler kedua akan menggunakan MQTT untuk
+       mengirim data yang diterima dari receiver ke database.
+   9.​ Database (MySQL): Data yang diterima melalui MQTT akan dimasukkan ke dalam
+       database yang menggunakan MySQL.
+   10.​Dashboard UI: Data yang telah diproses dan disimpan dalam database akan ditampilkan
+       di Dashboard Website Monitoring untuk pemantauan oleh tim SAR dan pihak terkait
+       lainnya.
+
+Namun ada beberapa catatan kembali apabila proyek ini lolos menuju tahap penyisihan 2.
+
+Kami akan melakukan beberapa perubahan dari segi alat sebagai berikut :
+
+   1.​ Kami akan menggunakan baterai sebagai sumber daya dari kedua mikrokontroler.
+   2.​ Kami akan melakukan cetak 3D Print untuk alat dapat disusun secara ringkas dengan
+       pembuatan wadah berbahan dasar plastik.
+
+
+
+
+                                                                                         22
+Tahap 3 (Pengembangan proyek 100% / penyisihan 3)
+
+Pada tahap 3 pengembangan proyek ini dianggap tercapai apabila berhasil memenuhi kebutuhan
+sesuai dengan diagram blok berikut :
+
+
+
+
+Pada diagram blok di atas, dijelaskan alur data yang dikirimkan oleh pengguna (tim SAR)
+dengan menggunakan transmitter-receiver untuk pengiriman data tanpa internet. Dalam tahapan
+lanjutan ini, komunikasi MQTT tetap digunakan untuk mentransfer data dari receiver ke
+database dan dashboard UI. Berikut adalah alur lengkapnya:
+    1.​ Tombol Aman, Tombol Warning, Tombol SOS: Tim SAR dapat memilih salah satu
+        dari tiga tombol ini untuk mengirimkan status mereka. Tombol hijau menunjukkan
+        kondisi aman, kuning untuk peringatan, dan merah untuk situasi darurat (SOS).
+    2.​ OTOMASI 3 Menit: Jika dalam waktu 3 menit sejak terakhir kali tombol ditekan tidak
+        ada input baru dari pengguna, data status serta lokasi (latitude dan longitude) akan secara
+        otomatis dikirim tanpa perlu menekan tombol lagi.
+    3.​ GPS (UBLOX NEO-6M): Modul GPS digunakan untuk mendapatkan data lokasi, yaitu
+        latitude dan longitude.
+    4.​ Microcontroller (ESP32): Mikrokontroler ESP32 digunakan untuk mengelola data yang
+        diterima dari tombol dan modul GPS. Mikrokontroler ini akan mempersiapkan data untuk
+        dikirim.
+
+
+
+
+                                                                                                23
+   5.​ Transmitter (NRF24L01/Lora): Data yang telah dipersiapkan oleh mikrokontroler akan
+       dikirimkan melalui transmitter NRF24L01 atau Lora, yang menggunakan sinyal frekuensi
+       radio untuk mentransmisikan data.
+   6.​ Receiver (NRF24L01/Lora): Data yang dikirimkan oleh transmitter akan diterima oleh
+       receiver yang kompatibel (NRF24L01 atau Lora).
+   7.​ Mikrokontroller (ESP32): Mikrokontroler kedua akan menerima data dari receiver dan
+       mempersiapkannya untuk dikirim menggunakan protokol komunikasi MQTT.
+   8.​ Communication (MQTT): Mikrokontroler kedua akan menggunakan MQTT untuk
+       mengirim data yang diterima dari receiver ke database.
+   9.​ Database (MySQL): Data yang diterima melalui MQTT akan dimasukkan ke dalam
+       database yang menggunakan MySQL.
+   10.​AI Algoritma A* (Star): AI akan ditanam diantara proses pada Database menuju
+       Dashboard UI. yang mana digunakan untuk mengoptimalkan rute terdekat antara
+       Basecamp tim SAR ke lokasi berstatus SOS.
+   11.​Dashboard UI: Data yang telah diproses dan disimpan dalam database akan ditampilkan
+       di Dashboard Website Monitoring untuk pemantauan oleh tim SAR dan pihak terkait
+       lainnya.
+
+Namun ada beberapa catatan kembali apabila proyek ini lolos sampai pada tahap penyisihan 3.
+
+Kami akan melakukan beberapa perubahan dari segi alat sebagai berikut :
+
+   1.​ Kami akan menanamkan Kecerdasan Buatan dengan Algoritma A*(star).
+
+Algoritma A Star adalah algoritma pencarian terbaik yang menggabungkan Pencarian Biaya
+Seragam (Uniform Cost Search) dan Pencarian Terbaik-Greedy (Greedy Best-First Search). Jarak
+yang diperoleh berasal dari perhitungan jarak aktual (biaya aktual) ditambah dengan jarak
+perkiraan (biaya perkiraan) (Suhendri et al., 2021; Sunaryo et al., 2016).
+
+Algoritma A* (A-star) adalah algoritma graf traversal dan pathfinding yang dirancang untuk
+menemukan jalur terpendek antara dua titik dalam graf. A* adalah pengembangan dari algoritma
+Dijkstra, yang menggabungkan kelebihan dari Dijkstra dan algoritma Greedy Best-First Search.
+
+A* bekerja dengan menggunakan fungsi evaluasi              untuk setiap node    , yang merupakan
+jumlah dari dua komponen:
+
+   ●​        : Biaya dari node awal ke node nnn saat ini. Ini adalah jarak aktual yang telah
+        ditempuh dari titik awal.
+   ●​      : Estimasi biaya terpendek dari node nnn ke node tujuan. Ini adalah heuristik yang
+        memandu pencarian jalur.
+
+
+
+
+                                                                                                24
+Dibandingkan dengan algoritma Dijkstra yang hanya menggunakan             , A* menambahkan
+heuristik      untuk memandu pencarian, mengarahkan pencarian lebih dekat ke tujuan dan
+seringkali mengurangi jumlah node yang dieksplorasi.
+
+Untuk menjamin bahwa A* menemukan jalur terpendek, heuristik          harus:
+
+   ●​ Admissible: Tidak pernah melebihi biaya sebenarnya dari node n ke tujuan, yaitu:
+                     di mana        adalah biaya sebenarnya dari node n ke tujuan.
+   ●​ Consistent (Monotonicity): Untuk setiap edge         , heuristik harus memenuhi:
+                               di mana c(n, m) adalah biaya dari n ke m. Ketidaksamaan ini
+       memastikan bahwa jalur dari node nnn ke tujuan tidak akan menjadi lebih mahal jika
+       diperpanjang melalui node lain.
+
+Algoritma A* digunakan untuk menemukan jalur terpendek antara dua titik dalam graf jalanan,
+dan heuristik yang digunakan adalah:
+
+Kompleksitas Waktu dan Ruang:
+
+Kompleksitas waktu dan ruang dari A* bergantung pada sifat graf dan heuristic yang digunakan.
+Dalam kasus terburuk, kompleksitas waktu A* bisa mendekati Dijkstra, yaitu :
+
+                  . di mana ∣V∣ adalah jumlah simpul dan ∣E∣ adalah jumlah sisi.
+Kompleksitas ruang juga bisa sangat tinggi karena A* perlu menyimpan semua simpul dalam
+memori.
+
+      , di mana b adalah branching factor (rata-rata jumlah simpul yang dihasilkan dari satu
+simpul) dan ddd adalah kedalaman solusi. Dengan heuristic yang baik, b dan d dapat dikurangi
+secara signifikan.
+
+Sama dengan waktu, A* membutuhkan penyimpanan besar untuk daftar simpul yang dikunjungi
+dan yang akan dikunjungi.
+
+
+
+
+                                                                                             25
+Perbandingan dengan Algoritma Lain
+
+
+
+
+                                                                        ​
+
+A vs Dijkstra*:
+
+Dijkstra: Algoritma ini juga mencari jalur terpendek, namun tidak menggunakan heuristic. Ini
+berarti Dijkstra selalu menjelajahi setiap simpul berdasarkan jarak terpendek yang diketahui dari
+titik awal, yang membuatnya optimal tetapi tidak selalu efisien dalam hal jumlah simpul yang
+diproses. Kompleksitas waktunya adalah                      menggunakan heap Fibonacci.
+
+Efisiensi: A* biasanya lebih efisien daripada Dijkstra dalam hal jumlah simpul yang
+dieksplorasi, terutama jika heuristic mendekati biaya sebenarnya.
+
+Optimalitas: Keduanya optimal dalam menemukan jalur terpendek. Namun, A* bisa lebih cepat
+jika heuristic mendekati biaya aktual.
+
+1. Koneksi ke Database (get_db_connection)
+
+   ●​ Kompleksitas waktu: Seperti sebelumnya, ini biasanya memerlukan waktu konstan dan dapat
+       dianggap sebagai     , meskipun ini bergantung pada jaringan dan kecepatan respon dari
+       database.
+
+
+2. Mengambil Data dari Database
+
+   ●​ Kompleksitas waktu: Mengambil data dari database memiliki kompleksitas        , di mana
+      adalah jumlah baris yang diambil dari tabel map-tracking.
+
+
+
+
+                                                                                                26
+3. Mencari Titik Awal
+
+    ●​ Kompleksitas waktu: Mengambil satu baris dari database dengan kondisi pencarian memiliki
+        kompleksitas         , di mana     adalah jumlah total baris yang harus diperiksa dalam kondisi
+        terburuk.
+
+
+4. Membangun Graf dari Titik Awal
+
+    ●​ Kompleksitas waktu: Membangun graf dari titik awal memerlukan waktu                  , di mana E adalah
+       jumlah edges (sisi) dalam graf yang dibangun.
+
+
+5. Mengelompokkan Perangkat Berdasarkan Nama
+
+    ●​ Kompleksitas waktu: Mengelompokkan perangkat berdasarkan nama memerlukan waktu                        .
+
+
+6. Mengurutkan Perangkat Berdasarkan Jarak dari Titik Awal
+
+    ●​ Kompleksitas waktu: Mengurutkan perangkat berdasarkan jarak menggunakan sort memiliki
+        kompleksitas                 untuk setiap grup, dengan total                jika semua perangkat
+        diurutkan.
+
+
+7. Mencari Jalur Terpendek
+
+    A.​ Menggunakan A*
+ return nx.astar_path(graph, start_node, end_node, heuristic=lambda u, v:
+ geodesic((graph.nodes[u]['y'], graph.nodes[u]['x']), (graph.nodes[v]['y'],
+ graph.nodes[v]['x'])).m, weight='length')
+
+
+
+    ●​ Kompleksitas waktu: A* memiliki kompleksitas waktu                              .
+
+
+
+
+    B.​ Menggunakan Djikstra
+ return nx.dijkstra_path(graph, start_node, end_node, weight='length')
+
+
+
+Kompleksitas waktu untuk pencarian jalur dengan Dijkstra:
+
+Di mana V adalah jumlah node dalam graf dan E adalah jumlah edges dalam graf. Algoritma A* Star mirip dengan
+Dijkstra, tetapi dengan tambahan overhead untuk heuristic. Kompleksitas sebenarnya dapat lebih rendah tergantung
+pada seberapa efektif heuristic yang digunakan.
+
+
+
+                                                                                                                 27
+8. Iterasi dan Pengolahan Setiap Perangkat
+ for name, devices in devices_by_name.items():​
+     ...​
+     for i in range(1, len(devices)):​
+          path_between = find_path(G, (devices[i-1][2], devices[i-1][3]),
+ (devices[i][2], devices[i][3]))​
+          ...
+
+
+    ●​ Kompleksitas waktu: Bagian ini memerlukan iterasi melalui setiap perangkat yang dikelompokkan.
+           Dalam kasus terburuk, kompleksitas total bagian ini bisa menjadi                       , di
+           mana    adalah jumlah total perangkat yang diproses, dan dan       adalah jumlah simpul dan sisi
+           dalam graf.
+
+
+9. Kompleksitas Waktu Total
+
+Menggabungkan semua komponen di atas:
+
+    ●​ Mengambil data dari database:
+    ●​ Membangun graf:
+    ●​ Mengelompokkan perangkat berdasarkan nama:
+    ●​ Mengurutkan perangkat berdasarkan jarak:
+    ●​ Pencarian jalur dengan A*:
+
+Sehingga, kompleksitas totalnya kira-kira:
+
+
+
+
+di mana:
+
+    ●​ N adalah jumlah total perangkat,
+    ●​ V adalah jumlah simpul dalam graf,
+    ●​ E adalah jumlah sisi dalam graf.
+
+
+
+
+                                                                                                         28
+Perbandingan dengan Dijkstra
+
+
+
+
+                                          (Abhishek Goyal. 2014)
+
+Pendekatan heuristik dalam pathfinding penting karena meningkatkan efisiensi dengan mempercepat pencarian jalur
+melalui perkiraan jarak atau biaya, sehingga mengurangi waktu komputasi dan jumlah node yang harus dieksplorasi.
+Heuristik membantu algoritma fokus pada area graf yang relevan, menghindari eksplorasi yang tidak perlu, dan
+sering kali memberikan solusi yang "cukup baik" dengan cepat, terutama dalam graf yang besar dan kompleks,
+sehingga cocok untuk aplikasi real-time atau dengan keterbatasan sumber daya.
+
+Kompleksitas waktu antara A* dan Dijkstra mirip pada skenario terburuk, yaitu                        . Namun, A*
+dapat lebih cepat dalam praktiknya jika heuristic yang digunakan efektif, karena dapat mengurangi jumlah node
+yang perlu dieksplorasi. Dengan kata lain, A* dapat memiliki kinerja yang lebih baik daripada Dijkstra pada graf
+tertentu dengan heuristic yang baik, meskipun kompleksitas waktu teoritisnya sama dalam skenario terburuk.
+
+
+
+
+                                                                                                             29
+                             DAFTAR PUSTAKA
+
+Abdi Pandu Kusuma 1 , Ananda Dwi Oktavianto 2, (2017). Abdi Pandu Kusuma 1 , Ananda Dwi
+Oktavianto 2. Jurnal Teknologi dan Manajemen Informatika
+https://jurnal.unmer.ac.id/index.php/jtmi/article/download/8871/pdf
+
+Ali,D.,Nasser, S., (2017).Internet of Things in the wake of natural disasters: An analysis of
+applications.2017 IEEE International Conference on Pervasive Computing and Communications
+Workshops (PerCom Workshops)
+https://ieeexplore.ieee.org/abstract/document/7917853
+
+Arif Cahyo Prasetyo 1 , Maful Prayoga Arnandi 2 , Harish Setyo Hudnanto3 , Bayu Setiaji 4
+Perbandingan Algoritma Astar dan Dijkstra Dalam Menentukan Rute Terdekat
+https://conference.umk.ac.id/index.php/snatif/article/download/37/37
+
+Bagus,I     (2018).   SISTEM IOT          BERBASIS         PROTOKOL       MQTT      DENGAN
+MIKROKONTROLER ESP8266 DAN ESP32
+https://conference.umk.ac.id/index.php/snatif/article/download/37/37
+
+Gupta, N., Kumar, K., (2018).A Survey on Internet of Things for Disaster Management.
+International Journal of Scientific & Engineering Research
+https://www.researchgate.net/publication/368574542_A_Survey_on_Disaster_Mitigation_and_
+Management_Issues_Challenges_Approaches
+
+Luthfi, (2019). Implementasi Google Maps Api Pada Iot Platform Untuk Pelacak Suatu Objek
+Menggunakan Gps | eProceedings of Engineering
+https://openlibrarypublications.telkomuniversity.ac.id/index.php/engineering/article/view/10433
+
+
+
+
+                                                                                            30
+

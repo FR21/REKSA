@@ -14,7 +14,13 @@ flowchart LR
   B -->|WS /ws/live| F
   F -->|Supervisor commands| B
   B -->|Warnings via MQTT| H
+  B -->|Temporal window| A[REKSA AI Advisory]
+  A -->|Forecast + provenance| B
 ```
+
+AI bersifat **advisory-only**. Warning lokal pada helm dan state machine backend tidak
+menunggu respons AI. Bila service AI tidak tersedia, dashboard menampilkan status
+`UNAVAILABLE` tanpa membuat probabilitas pengganti.
 
 Domain backend dipisahkan ke `schemas`, `models`, `services`, `simulation`, dan `api`. Deployment tetap empat container agar mudah didemonstrasikan dan dirawat.
 

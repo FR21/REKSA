@@ -1,5 +1,21 @@
 export type RiskLevel = 'SAFE' | 'MODERATE' | 'HIGH' | 'CRITICAL'
 
+export interface AIAdvisory {
+  status: 'AWAITING_LIVE_TELEMETRY' | 'AWAITING_HAZARD' | 'COLLECTING_WINDOW' | 'READY' | 'UNAVAILABLE'
+  escalation_probability?: number
+  risk_level?: 'LOW' | 'MEDIUM' | 'HIGH'
+  dominant_factors?: string[]
+  recommendation?: string
+  inference_source?: string
+  model_version?: string
+  probability_is_calibrated?: boolean
+  score_semantics?: string
+  sample_count?: number
+  required_samples?: number
+  generated_at: string
+  advisory_only: true
+}
+
 export interface Worker {
   id: string
   name: string
@@ -31,6 +47,7 @@ export interface Worker {
   calculation_source: string
   dominant_factor: string
   recommended_action: string
+  ai_advisory: AIAdvisory
 }
 
 export interface Hazard {

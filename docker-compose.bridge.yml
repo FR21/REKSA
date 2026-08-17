@@ -1,0 +1,13 @@
+services:
+  bridge:
+    build: ./bridge
+    env_file: ./bridge/.env
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/gcp-service-account.json
+    volumes:
+      - bridge_data:/data
+      - ./secrets/gcp-service-account.json:/run/secrets/gcp-service-account.json:ro
+    restart: unless-stopped
+
+volumes:
+  bridge_data:

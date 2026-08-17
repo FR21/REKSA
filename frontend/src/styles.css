@@ -1190,6 +1190,8 @@ button {
   padding-top: 16px;
   border-top: 1px solid var(--line);
 }
+
+.ai-reason-line { color: var(--muted); font-size: 12px; line-height: 1.6; margin: 10px 0; }
 .source-line span {
   font-weight: 600;
   font-size: 12px;

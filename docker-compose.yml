@@ -27,12 +27,28 @@ services:
       timeout: 5s
       retries: 5
 
+  ai:
+    build: ./AI
+    environment:
+      REKSA_FORECAST_MODEL: /app/models/near_miss_forecaster.joblib
+      REKSA_PRIORITY_MODEL: /app/models/priority_engine.joblib
+    volumes:
+      - ./AI/models:/app/models:ro
+    ports:
+      - "8100:8100"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8100/health')"]
+      interval: 10s
+      timeout: 4s
+      retries: 10
+
   backend:
     build: ./backend
     environment:
       DATABASE_URL: postgresql+psycopg://reksa:reksa_dev_password@postgres:5432/reksa
       MQTT_HOST: mosquitto
       MQTT_PORT: 1883
+      AI_SERVICE_URL: http://ai:8100
       CORS_ORIGINS: '["http://localhost:5173","http://localhost:8080"]'
     ports:
       - "8000:8000"
@@ -42,6 +58,7 @@ services:
     depends_on:
       postgres: { condition: service_healthy }
       mosquitto: { condition: service_healthy }
+      ai: { condition: service_healthy }
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"]
       interval: 10s

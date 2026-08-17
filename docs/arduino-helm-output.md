@@ -23,7 +23,7 @@ Buzzer dikonfigurasi pada GPIO 19
 Vibration dikonfigurasi pada GPIO 23
 DHT22 dikonfigurasi pada GPIO 18
 BLE Scanner aktif
-Menghubungkan ke WiFi: Shaaapayaaa
+Menghubungkan ke WiFi: YOUR_WIFI_SSID
 WiFi terhubung!
 IP Address: 10.168.239.50
 ```

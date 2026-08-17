@@ -5,20 +5,30 @@ Industrial Safety Monitoring System — Dynamic Hazard Awareness and Near-Miss T
 
 REKSA adalah aplikasi full-stack IoT untuk memantau risiko pekerja di sekitar forklift dan peralatan industri. Aplikasi menyediakan dashboard real-time, live monitoring pekerja, registry perangkat IoT, near-miss otomatis, dan peringatan helm.
 
+Fitur kompetisi utama adalah **AI early-warning advisory** berbasis temporal window
+BLE-RSSI dan MPU6050. AI tidak menggantikan state machine keselamatan lokal. Lihat
+[`docs/gemastik-strategy.md`](docs/gemastik-strategy.md) untuk strategi implementasi dan
+pemetaan ke kriteria penilaian.
+
 > Semua seed dan analytics bawaan ditandai **SIMULATION DATA**. Skor risiko dihitung dari aturan operasional berbasis sensor.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-  I[ESP32 / Simulator] -->|MQTT| M[Mosquitto]
+  I[ESP32 / Simulator] -->|MQTT local atau TLS| M[Mosquitto / HiveMQ Cloud]
   M --> B[FastAPI modular monolith]
+  B <--> A[REKSA AI advisory]
   B <--> D[(PostgreSQL)]
   B -->|REST + WebSocket| R[React command center]
   R -->|Warning / acknowledge / config| B
 ```
 
 Dokumentasi detail: [architecture](docs/architecture.md), [MQTT topics](docs/mqtt-topics.md), [API](docs/api.md), dan [demo flow](docs/demo-scenarios.md).
+
+Mulai dari sini untuk upload cloud: [panduan langkah demi langkah siap salin-tempel](PANDUAN-DEPLOY-STEP-BY-STEP.md).
+Ringkasan arsitektur: [HiveMQ, Pub/Sub, Cloud Run, Firestore, dan Firebase](docs/cloud-deployment.md).
+Alur bukti AI: [pengumpulan data nyata dan perbandingan model](docs/ai-evidence-workflow.md).
 
 ## Stack
 
@@ -76,6 +86,9 @@ SQLite dipakai oleh `.env.example` untuk local development. Docker mengatur `DAT
 |---|---|---|
 | `DATABASE_URL` | `sqlite:///./reksa.db` | SQLAlchemy connection URL |
 | `MQTT_HOST` / `MQTT_PORT` | `localhost` / `1883` | Mosquitto connection |
+| `MQTT_ENABLED` | `true` | Nonaktifkan pada Cloud Run; ingest menggunakan Pub/Sub push |
+| `MQTT_USERNAME` / `MQTT_PASSWORD` | kosong | Basic authentication HiveMQ |
+| `MQTT_TLS` | `false` | Validasi TLS broker; gunakan `true` untuk HiveMQ |
 | `CORS_ORIGINS` | `http://localhost:5173` | Comma-separated explicit origins |
 | `DEVICE_OFFLINE_TIMEOUT` | `30` | Seconds before marking offline |
 | `VITE_API_URL` | `/api/v1` | Frontend REST base URL |
@@ -118,6 +131,8 @@ reksa/
 ├── frontend/       # React command center, pages, stores, tests
 ├── backend/        # FastAPI, SQLAlchemy models, safety services
 ├── mosquitto/      # Broker configuration and persisted data
+├── bridge/         # Durable HiveMQ-to-Pub/Sub gateway
+├── deploy/gcp/     # Cloud Run, Pub/Sub, Firestore, Firebase scripts
 ├── docs/           # Architecture, MQTT, API, and demo guide
 ├── docker-compose.yml
 ├── Makefile

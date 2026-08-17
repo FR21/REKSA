@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net" modified="2026-08-17T18:00:00.000Z" agent="Codex" version="24.7.17" type="device">
+  <diagram id="reksa-architecture" name="Arsitektur REKSA">
+    <mxGraphModel dx="1500" dy="850" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <mxCell id="title" value="ARSITEKTUR BERLAPIS REKSA" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=24;fontStyle=1;fontColor=#111111;" vertex="1" parent="1">
+          <mxGeometry x="390" y="20" width="820" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="subtitle" value="Pemisahan jalur alarm lokal dan jalur telemetry cloud" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Arial;fontSize=13;fontColor=#4B5563;" vertex="1" parent="1">
+          <mxGeometry x="460" y="58" width="680" height="25" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="local-layer" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF7F7;strokeColor=#D1D5DB;strokeWidth=1.5;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="40" y="105" width="600" height="665" as="geometry"/>
+        </mxCell>
+        <mxCell id="local-label" value="1  PERANGKAT DAN KESELAMATAN LOKAL" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=Arial;fontSize=15;fontStyle=1;fontColor=#111111;" vertex="1" parent="1">
+          <mxGeometry x="70" y="122" width="430" height="35" as="geometry"/>
+        </mxCell>
+        <mxCell id="local-caption" value="Berjalan langsung pada perangkat tanpa menunggu internet" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=Arial;fontSize=11;fontColor=#6B7280;" vertex="1" parent="1">
+          <mxGeometry x="70" y="151" width="430" height="25" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="integration-layer" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8FAFC;strokeColor=#D1D5DB;strokeWidth=1.5;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="670" y="105" width="350" height="665" as="geometry"/>
+        </mxCell>
+        <mxCell id="integration-label" value="2  KOMUNIKASI DAN INTEGRASI" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=Arial;fontSize=15;fontStyle=1;fontColor=#111111;" vertex="1" parent="1">
+          <mxGeometry x="700" y="122" width="290" height="35" as="geometry"/>
+        </mxCell>
+        <mxCell id="integration-caption" value="Pengiriman andal dengan buffer dan deduplikasi" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=Arial;fontSize=11;fontColor=#6B7280;" vertex="1" parent="1">
+          <mxGeometry x="700" y="151" width="290" height="25" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="cloud-layer" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8FAFC;strokeColor=#D1D5DB;strokeWidth=1.5;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="1050" y="105" width="410" height="665" as="geometry"/>
+        </mxCell>
+        <mxCell id="cloud-label" value="3  CLOUD, ANALITIK, DAN DASHBOARD" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=Arial;fontSize=15;fontStyle=1;fontColor=#111111;" vertex="1" parent="1">
+          <mxGeometry x="1080" y="122" width="350" height="35" as="geometry"/>
+        </mxCell>
+        <mxCell id="cloud-caption" value="Pemantauan, penyimpanan histori, dan prioritas pemeriksaan" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=Arial;fontSize=11;fontColor=#6B7280;" vertex="1" parent="1">
+          <mxGeometry x="1080" y="151" width="350" height="25" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="hazard" value="&lt;b&gt;ACTIVE HAZARD NODE&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot;&gt;Memancarkan identitas sumber bahaya melalui BLE&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#B91C1C;strokeWidth=2;fontFamily=Arial;fontSize=14;fontColor=#111111;spacing=12;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="80" y="220" width="210" height="105" as="geometry"/>
+        </mxCell>
+        <mxCell id="helmet" value="&lt;b&gt;SMART HELMET NODE&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot;&gt;Mendeteksi zona dan mengambil keputusan alarm secara lokal&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#B91C1C;strokeWidth=2;fontFamily=Arial;fontSize=14;fontColor=#111111;spacing=12;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="380" y="210" width="220" height="125" as="geometry"/>
+        </mxCell>
+        <mxCell id="alarm" value="&lt;b&gt;ALARM LOKAL&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot;&gt;Buzzer dan vibration motor memberi peringatan langsung kepada pekerja&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEE2E2;strokeColor=#991B1B;strokeWidth=3;fontFamily=Arial;fontSize=14;fontColor=#111111;spacing=12;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="380" y="410" width="220" height="125" as="geometry"/>
+        </mxCell>
+        <mxCell id="offline-note" value="&lt;b&gt;OFFLINE-FIRST&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:12px&quot;&gt;Kegagalan Wi-Fi, MQTT, gateway, backend, AI, atau cloud tidak mematikan alarm lokal.&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#4B5563;strokeWidth=1.5;dashed=1;dashPattern=5 4;fontFamily=Arial;fontSize=15;fontColor=#111111;spacing=14;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="95" y="595" width="490" height="105" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="hivemq" value="&lt;b&gt;HIVEMQ CLOUD&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot;&gt;TLS dan MQTT QoS 1&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#2563EB;strokeWidth=2;fontFamily=Arial;fontSize=14;fontColor=#111111;spacing=12;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="720" y="210" width="250" height="105" as="geometry"/>
+        </mxCell>
+        <mxCell id="gateway" value="&lt;b&gt;GATEWAY BRIDGE&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot;&gt;Outbox SQLite, retransmisi, ACK, dan deduplikasi&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#2563EB;strokeWidth=2;fontFamily=Arial;fontSize=14;fontColor=#111111;spacing=12;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="720" y="395" width="250" height="115" as="geometry"/>
+        </mxCell>
+        <mxCell id="pubsub" value="&lt;b&gt;GOOGLE CLOUD PUB/SUB&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot;&gt;Distribusi telemetry menuju backend&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#2563EB;strokeWidth=2;fontFamily=Arial;fontSize=14;fontColor=#111111;spacing=12;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="720" y="590" width="250" height="105" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="backend" value="&lt;b&gt;CLOUD RUN BACKEND&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot;&gt;Validasi, pengelolaan event, dan API&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#2563EB;strokeWidth=2;fontFamily=Arial;fontSize=14;fontColor=#111111;spacing=12;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1110" y="200" width="290" height="105" as="geometry"/>
+        </mxCell>
+        <mxCell id="ai" value="&lt;b&gt;CLOUD RUN AI&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot;&gt;Priority Engine untuk membantu urutan pemeriksaan&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;color:#6B7280&quot;&gt;ADVISORY ONLY&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#2563EB;strokeWidth=2;fontFamily=Arial;fontSize=14;fontColor=#111111;spacing=11;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1110" y="355" width="290" height="120" as="geometry"/>
+        </mxCell>
+        <mxCell id="firestore" value="&lt;b&gt;FIRESTORE&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot;&gt;Penyimpanan event, histori, dan hasil analisis&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#2563EB;strokeWidth=2;fontFamily=Arial;fontSize=14;fontColor=#111111;spacing=12;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1110" y="525" width="290" height="105" as="geometry"/>
+        </mxCell>
+        <mxCell id="dashboard" value="&lt;b&gt;FIREBASE DASHBOARD&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot;&gt;Pemantauan dan verifikasi oleh supervisor K3&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#2563EB;strokeWidth=2;fontFamily=Arial;fontSize=14;fontColor=#111111;spacing=12;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1110" y="665" width="290" height="75" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="local-edge-1" value="BLE" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#B91C1C;strokeWidth=5;endArrow=block;endFill=1;fontFamily=Arial;fontSize=11;fontStyle=1;fontColor=#991B1B;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="hazard" target="helmet">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="local-edge-2" value="Keputusan zona" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#B91C1C;strokeWidth=5;endArrow=block;endFill=1;fontFamily=Arial;fontSize=11;fontStyle=1;fontColor=#991B1B;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="helmet" target="alarm">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="note-edge" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#6B7280;strokeWidth=1.5;dashed=1;dashPattern=5 4;endArrow=none;" edge="1" parent="1" source="alarm" target="offline-note">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="telemetry-edge-1" value="Telemetry" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2563EB;strokeWidth=2.5;dashed=1;dashPattern=8 6;endArrow=block;endFill=1;fontFamily=Arial;fontSize=11;fontColor=#1D4ED8;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="helmet" target="hivemq">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="telemetry-edge-2" value="TLS, QoS 1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2563EB;strokeWidth=2.5;dashed=1;dashPattern=8 6;endArrow=block;endFill=1;fontFamily=Arial;fontSize=11;fontColor=#1D4ED8;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="hivemq" target="gateway">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="telemetry-edge-3" value="Outbox" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2563EB;strokeWidth=2.5;dashed=1;dashPattern=8 6;endArrow=block;endFill=1;fontFamily=Arial;fontSize=11;fontColor=#1D4ED8;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="gateway" target="pubsub">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="telemetry-edge-4" value="Push event" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2563EB;strokeWidth=2.5;dashed=1;dashPattern=8 6;endArrow=block;endFill=1;fontFamily=Arial;fontSize=11;fontColor=#1D4ED8;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="pubsub" target="backend">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1035" y="643"/>
+              <mxPoint x="1035" y="253"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="telemetry-edge-5" value="Analisis dan skor prioritas" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2563EB;strokeWidth=2.5;dashed=1;dashPattern=8 6;startArrow=block;startFill=1;endArrow=block;endFill=1;fontFamily=Arial;fontSize=10;fontColor=#1D4ED8;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="backend" target="ai">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="telemetry-edge-6" value="Simpan event" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2563EB;strokeWidth=2.5;dashed=1;dashPattern=8 6;endArrow=block;endFill=1;fontFamily=Arial;fontSize=11;fontColor=#1D4ED8;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="backend" target="firestore">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1425" y="253"/>
+              <mxPoint x="1425" y="578"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="telemetry-edge-7" value="Hasil analisis" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2563EB;strokeWidth=2.5;dashed=1;dashPattern=8 6;endArrow=block;endFill=1;fontFamily=Arial;fontSize=10;fontColor=#1D4ED8;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="ai" target="firestore">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="telemetry-edge-8" value="Data pemantauan" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2563EB;strokeWidth=2.5;dashed=1;dashPattern=8 6;endArrow=block;endFill=1;fontFamily=Arial;fontSize=10;fontColor=#1D4ED8;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="firestore" target="dashboard">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="legend-red-line" value="" style="shape=line;html=1;strokeColor=#B91C1C;strokeWidth=5;" vertex="1" parent="1">
+          <mxGeometry x="60" y="815" width="70" height="10" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-red-text" value="Jalur alarm lokal" style="text;html=1;align=left;verticalAlign=middle;fontFamily=Arial;fontSize=11;fontStyle=1;fontColor=#111111;" vertex="1" parent="1">
+          <mxGeometry x="140" y="799" width="150" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-blue-line" value="" style="shape=line;html=1;strokeColor=#2563EB;strokeWidth=2.5;dashed=1;dashPattern=8 6;" vertex="1" parent="1">
+          <mxGeometry x="330" y="815" width="70" height="10" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-blue-text" value="Jalur telemetry dan analitik" style="text;html=1;align=left;verticalAlign=middle;fontFamily=Arial;fontSize=11;fontColor=#111111;" vertex="1" parent="1">
+          <mxGeometry x="410" y="799" width="210" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="figure-caption" value="Gambar X. Arsitektur berlapis REKSA dengan pemisahan jalur alarm lokal dan telemetry cloud" style="text;html=1;align=right;verticalAlign=middle;fontFamily=Arial;fontSize=11;fontStyle=2;fontColor=#374151;" vertex="1" parent="1">
+          <mxGeometry x="760" y="799" width="680" height="40" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

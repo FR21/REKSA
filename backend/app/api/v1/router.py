@@ -171,6 +171,11 @@ async def create_worker(values: WorkerInput) -> dict[str, Any]:
         "calculation_source": "RULE_BASED_SCORING",
         "dominant_factor": "None",
         "recommended_action": "Pekerja baru terdaftar.",
+        "ai_advisory": {
+            "status": "AWAITING_LIVE_TELEMETRY",
+            "advisory_only": True,
+            "generated_at": datetime.now(UTC).isoformat(),
+        },
     }
     simulation_engine.state["workers"].insert(0, worker)
     await websocket_manager.broadcast("worker.updated", worker)

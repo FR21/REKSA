@@ -1,0 +1,171 @@
+{
+  "input": "/home/wielio/Documents/Wiefran/Proyek/REKSA/REKSA/output/documents/REKSA_Proposal_GEMASTIK_XIX_2026_Revisi.docx",
+  "fonts_by_char_count": {
+    "Times New Roman": 40981,
+    "Arial": 514
+  },
+  "direct_run_formatting_runs": 684,
+  "direct_paragraph_formatting_paragraphs": 687,
+  "heading_like_paragraphs_not_heading_style": [
+    {
+      "para_index": 2,
+      "text": "PROPOSAL BABAK PENYISIHAN",
+      "style": "Normal"
+    },
+    {
+      "para_index": 3,
+      "text": "PAGELARAN MAHASISWA NASIONAL BIDANG TIK\nGEMASTIK XIX TAHUN 2026",
+      "style": "Normal"
+    },
+    {
+      "para_index": 5,
+      "text": "RADAR EVALUASI K3 DAN SENSOR ANCAMAN KERJA",
+      "style": "Normal"
+    },
+    {
+      "para_index": 8,
+      "text": "UNIVERSITAS GUNADARMA\n2026",
+      "style": "Normal"
+    },
+    {
+      "para_index": 84,
+      "text": "Dashboard publik purwarupa: https://reksa-505809.web.app",
+      "style": "Normal"
+    },
+    {
+      "para_index": 186,
+      "text": "TEMPAT LOGO\nKEMENDIKTISAINTEK\n(pojok kiri atas)",
+      "style": "Normal"
+    },
+    {
+      "para_index": 187,
+      "text": "TEMPAT LOGO\nGEMASTIK XIX 2026\n(tengah atas)",
+      "style": "Normal"
+    },
+    {
+      "para_index": 188,
+      "text": "TEMPAT LOGO\nUNIVERSITAS GUNADARMA\n(pojok kanan atas)",
+      "style": "Normal"
+    },
+    {
+      "para_index": 189,
+      "text": "IDENTITAS TIM",
+      "style": "Normal"
+    },
+    {
+      "para_index": 190,
+      "text": "KETERANGAN",
+      "style": "Normal"
+    },
+    {
+      "para_index": 191,
+      "text": "Nama Tim",
+      "style": "Normal"
+    },
+    {
+      "para_index": 193,
+      "text": "Ketua",
+      "style": "Normal"
+    },
+    {
+      "para_index": 195,
+      "text": "Anggota",
+      "style": "Normal"
+    },
+    {
+      "para_index": 197,
+      "text": "Dosen Pendamping",
+      "style": "Normal"
+    },
+    {
+      "para_index": 199,
+      "text": "Perguruan Tinggi",
+      "style": "Normal"
+    },
+    {
+      "para_index": 201,
+      "text": "Kategori",
+      "style": "Normal"
+    },
+    {
+      "para_index": 203,
+      "text": "1. Abstrak",
+      "style": "Normal"
+    },
+    {
+      "para_index": 205,
+      "text": "2. Latar Belakang",
+      "style": "Normal"
+    },
+    {
+      "para_index": 207,
+      "text": "3. Urgensi dan Manfaat",
+      "style": "Normal"
+    },
+    {
+      "para_index": 209,
+      "text": "3.1 Urgensi Karya dan Tujuan Pengembangan",
+      "style": "Normal"
+    }
+  ],
+  "examples": {
+    "direct_paragraph_formatting": [
+      {
+        "para_index": 1,
+        "text": "",
+        "style": "Normal"
+      },
+      {
+        "para_index": 2,
+        "text": "PROPOSAL BABAK PENYISIHAN",
+        "style": "Normal"
+      },
+      {
+        "para_index": 3,
+        "text": "PAGELARAN MAHASISWA NASIONAL BIDANG TIK\nGEMASTIK XIX TAHUN 2026",
+        "style": "Normal"
+      },
+      {
+        "para_index": 4,
+        "text": "",
+        "style": "Normal"
+      },
+      {
+        "para_index": 5,
+        "text": "RADAR EVALUASI K3 DAN SENSOR ANCAMAN KERJA",
+        "style": "Normal"
+      }
+    ],
+    "direct_run_formatting": [
+      {
+        "para_index": 2,
+        "run_text": "PROPOSAL BABAK PENYISIHAN",
+        "style": "Normal"
+      },
+      {
+        "para_index": 3,
+        "run_text": "PAGELARAN MAHASISWA NASIONAL BIDANG TIK\nGEMASTIK XIX TAHUN 2026",
+        "style": "Normal"
+      },
+      {
+        "para_index": 5,
+        "run_text": "RADAR EVALUASI K3 DAN SENSOR ANCAMAN KERJA",
+        "style": "Normal"
+      },
+      {
+        "para_index": 6,
+        "run_text": "Smart Helmet Offline-First Berbasis AI-IoT untuk Peringatan Zona Bahaya Dinamis ",
+        "style": "Normal"
+      },
+      {
+        "para_index": 8,
+        "run_text": "UNIVERSITAS GUNADARMA\n2026",
+        "style": "Normal"
+      }
+    ]
+  },
+  "notes": [
+    "Direct formatting is not always wrong, but it often causes inconsistent output when templates change.",
+    "Heading-like paragraphs not using Heading styles can break TOC and accessibility."
+  ]
+}
