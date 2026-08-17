@@ -14,7 +14,6 @@ export default function SettingsPage() {
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<'system' | 'devices'>('system')
 
-  // --- SYSTEM SETTINGS TAB ---
   const query = useQuery({ queryKey: ['settings'], queryFn: () => api<{ values: Settings }>('/settings') })
   const [values, setValues] = useState<Settings>({})
   const [confirmed, setConfirmed] = useState(false)
@@ -55,7 +54,6 @@ export default function SettingsPage() {
     { title: 'Environment Safety', subtitle: 'Batas kondisi lingkungan area kerja.', icon: Thermometer, fields: [['temperature_warning_threshold','Temperature Warning','°C'],['humidity_warning_threshold','Humidity Warning','%']] }
   ]
 
-  // --- IOT DEVICES REGISTRY TAB ---
   const devicesQuery = useQuery({
     queryKey: ['devices'],
     queryFn: () => api<{ items: Device[] }>('/devices'),
@@ -72,7 +70,6 @@ export default function SettingsPage() {
     enabled: activeTab === 'devices'
   })
 
-  // Form states
   const [formDeviceId, setFormDeviceId] = useState('')
   const [formDeviceType, setFormDeviceType] = useState<DeviceType>('SMART_HELMET')
   const [targetId, setTargetId] = useState('')
@@ -82,7 +79,7 @@ export default function SettingsPage() {
   const [isEditing, setIsEditing] = useState(false)
 
   useEffect(() => {
-    if (isEditing) return // Skip resetting targetId while editing
+    if (isEditing) return
 
     if (formDeviceType === 'SMART_HELMET' && workersQuery.data?.items?.length) {
       setTargetId(workersQuery.data.items[0].id)
@@ -106,7 +103,6 @@ export default function SettingsPage() {
       setFormDeviceId('')
       setFormAssignment('')
       setIsEditing(false)
-      // Clear message after 3 seconds
       setTimeout(() => setSuccessMsg(''), 3000)
     },
     onError: (err: unknown) => {
@@ -272,9 +268,7 @@ export default function SettingsPage() {
           </div>
         </div>
       ) : (
-        // --- IOT DEVICE REGISTRY LAYOUT ---
         <div className="device-registry-grid">
-          {/* Registry List Table */}
           <div className="stack-md">
             {devicesQuery.isLoading ? (
               <LoadingState label="Memuat registry perangkat..." />
@@ -345,7 +339,6 @@ export default function SettingsPage() {
             )}
           </div>
 
-          {/* Pair/Register Form Panel */}
           <div className="device-form-panel">
             <h3>{isEditing ? 'Edit IoT Device' : 'Pair & Register IoT Device'}</h3>
             <p style={{ fontSize: '13px', color: 'var(--muted)', margin: '-10px 0 20px 0', lineHeight: 1.4 }}>

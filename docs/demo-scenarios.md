@@ -1,4 +1,4 @@
-# Demo REKSA — Kurang dari 3 Menit
+# Demo REKSA: Kurang dari 3 Menit
 
 1. Buka Overview dan tunjukkan KPI, status perangkat, worker risk, dan trend near-miss.
 2. Buka Settings → IoT Device Registry untuk memastikan helm pekerja dan hazard node sudah terdaftar.

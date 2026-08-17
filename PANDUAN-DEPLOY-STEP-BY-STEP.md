@@ -2,7 +2,7 @@
 
 Ikuti urutan ini dari atas ke bawah. Jangan lompat langkah. Setiap langkah memiliki
 bagian **Berhasil jika**. Kalau hasilmu berbeda, berhenti di langkah itu dan kirimkan
-output terminalnya—jangan lanjut agar sumber error tidak bercampur.
+output terminalnya: jangan lanjut agar sumber error tidak bercampur.
 
 Arsitektur yang dipasang:
 
@@ -16,7 +16,7 @@ Firebase Hosting <-- dashboard <-- Cloud Run backend <-- Cloud Run AI
 Alarm benturan, jatuh, gas, dan kedekatan tetap berjalan di ESP32 ketika internet
 putus. Cloud dan AI hanya menambah pencatatan, dashboard, prioritas, dan prediksi.
 
-## Langkah 1 — Masuk ke folder proyek
+## Langkah 1: Masuk ke folder proyek
 
 Buka terminal baru, lalu salin seluruh blok ini:
 
@@ -29,7 +29,7 @@ git status --short
 **Berhasil jika:** `pwd` menampilkan folder yang berakhir dengan `/REKSA/REKSA`.
 Perubahan pada `git status` tidak perlu dihapus karena itu adalah pekerjaan proyekmu.
 
-## Langkah 2 — Pastikan Docker lokal sehat
+## Langkah 2: Pastikan Docker lokal sehat
 
 Jalankan:
 
@@ -54,7 +54,7 @@ docker compose logs -f backend ai
 
 Tekan `Ctrl+C` untuk keluar dari tampilan log; container tetap berjalan.
 
-## Langkah 3 — Buat HiveMQ Cloud Serverless gratis
+## Langkah 3: Buat HiveMQ Cloud Serverless gratis
 
 Pada antarmuka HiveMQ terbaru, istilah **cluster** sudah diganti menjadi **broker**.
 Keduanya berarti layanan MQTT Cloud yang akan menerima data dari ESP32.
@@ -80,17 +80,17 @@ level credential dan tidak menyediakan filter topic khusus pada form ini. Gunaka
 password berbeda dan hanya karakter huruf, angka, titik, garis bawah, atau tanda minus
 agar aman dibaca file `.env`.
 
-### Credential A — backend
+### Credential A: backend
 
 - Username: `reksa-backend`
 - Permission Type: **Publish and Subscribe**
 
-### Credential B — helmet
+### Credential B: helmet
 
 - Username: `reksa-helmet-w01`
 - Permission Type: **Publish and Subscribe**
 
-### Credential C — gateway
+### Credential C: gateway
 
 - Username: `reksa-gateway-01`
 - Permission Type: **Publish and Subscribe**
@@ -104,14 +104,14 @@ daftar credential.
 
 Dokumentasi resmi: [HiveMQ Cloud Quick Start](https://docs.hivemq.com/hivemq-cloud/quick-start-guide.html).
 
-## Langkah 4 — Buat project Google Cloud dan aktifkan Firebase
+## Langkah 4: Buat project Google Cloud dan aktifkan Firebase
 
 Lakukan ini sekarang agar Project ID bisa langsung dimasukkan ke skrip konfigurasi.
 
 1. Buka <https://console.cloud.google.com/projectcreate>.
 2. Isi nama, misalnya `REKSA GEMASTIK 2026`.
 3. Isi **Project ID** yang unik, misalnya `reksa-gemastik-wielio`. Project ID tidak
-   dapat diganti setelah dibuat—catat persis hurufnya.
+   dapat diganti setelah dibuat: catat persis hurufnya.
 4. Klik **Create** dan pastikan project baru itu sedang terpilih.
 5. Buka **Billing** dan hubungkan billing account. Cloud Run memerlukan billing aktif,
    walaupun pemakaian kecil masih dapat berada dalam free tier.
@@ -126,7 +126,7 @@ Lakukan ini sekarang agar Project ID bisa langsung dimasukkan ke skrip konfigura
 **Berhasil jika:** project yang sama terlihat pada Google Cloud dan Firebase, serta
 menu Firebase Hosting sudah aktif.
 
-## Langkah 5 — Pasang alat bantu lokal
+## Langkah 5: Pasang alat bantu lokal
 
 Pada Fedora, jalankan:
 
@@ -138,7 +138,7 @@ mosquitto_pub --help | head -n 1
 
 **Berhasil jika:** versi OpenSSL muncul dan `mosquitto_pub` menampilkan bantuan.
 
-## Langkah 6 — Buat seluruh file credential secara otomatis
+## Langkah 6: Buat seluruh file credential secara otomatis
 
 Jalankan:
 
@@ -169,7 +169,7 @@ git status --short --ignored | grep -E '(\.env\.hivemq|bridge/\.env|secrets\.h)'
 **Berhasil jika:** ketiga file ada, permission diawali `-rw-------`, dan status Git
 menunjukkan file tersebut sebagai ignored (`!!`).
 
-## Langkah 7 — Uji HiveMQ TLS, publish, subscribe, dan QoS 1
+## Langkah 7: Uji HiveMQ TLS, publish, subscribe, dan QoS 1
 
 Jalankan satu perintah:
 
@@ -187,7 +187,7 @@ Jika muncul `not authorised`, perbaiki Permission Type credential backend menjad
 Publish and Subscribe. Jika timeout, periksa hostname/port 8883 dan
 tunggu satu menit setelah pembuatan credential.
 
-## Langkah 8 — Jalankan backend lokal memakai HiveMQ Cloud
+## Langkah 8: Jalankan backend lokal memakai HiveMQ Cloud
 
 Hentikan stack biasa, kemudian start dengan override HiveMQ:
 
@@ -213,7 +213,7 @@ stack dasar, tetapi backend sudah diarahkan ke hostname HiveMQ melalui override.
 
 Dashboard tetap dibuka dari <http://localhost:5173>.
 
-## Langkah 9 — Upload firmware ke ESP32
+## Langkah 9: Upload firmware ke ESP32
 
 Cara paling aman untuk pertama kali adalah Arduino IDE:
 
@@ -231,7 +231,7 @@ Cara paling aman untuk pertama kali adalah Arduino IDE:
 dan payload telemetry dikirim/di-ACK. Jika compile gagal, kirim seluruh error mulai
 dari baris pertama `error:`.
 
-## Langkah 10 — Buktikan offline-first dan retransmission
+## Langkah 10: Buktikan offline-first dan retransmission
 
 1. Biarkan ESP32 online sampai ada pesan `Telemetry diterima`/ACK.
 2. Rekam Serial Monitor atau simpan log ke `evidence/serial-run-01.log`.
@@ -252,7 +252,7 @@ python tools/analyze_firmware_metrics.py evidence/serial-run-01.log
 dan `dropped=0`. Jangan mengklaim *zero data loss* bila ada pengujian dengan
 `dropped > 0`.
 
-## Langkah 11 — Instal Google Cloud CLI pada Fedora
+## Langkah 11: Instal Google Cloud CLI pada Fedora
 
 Salin blok berikut:
 
@@ -278,7 +278,7 @@ jangan deploy dahulu; perbarui Node.js.
 Dokumentasi resmi: [instalasi Google Cloud CLI](https://docs.cloud.google.com/sdk/docs/install-sdk)
 dan [Firebase CLI](https://firebase.google.com/docs/cli).
 
-## Langkah 12 — Login ke Google Cloud dan Firebase
+## Langkah 12: Login ke Google Cloud dan Firebase
 
 Jalankan satu per satu dan selesaikan login pada browser:
 
@@ -293,7 +293,7 @@ npx --yes firebase-tools@latest projects:list
 **Berhasil jika:** emailmu berstatus `ACTIVE` pada `gcloud auth list`, dan Project ID
 REKSA terlihat pada daftar Firebase.
 
-## Langkah 13 — Preflight sebelum memakai cloud
+## Langkah 13: Preflight sebelum memakai cloud
 
 Jalankan build lokal penuh:
 
@@ -304,7 +304,7 @@ cd '/home/wielio/Documents/Wiefran/Proyek/REKSA/REKSA'
 
 **Berhasil jika:** baris terakhir berbunyi `Local build preflight passed`.
 
-## Langkah 14 — Deploy AI, backend, Pub/Sub, Firestore, dan dashboard
+## Langkah 14: Deploy AI, backend, Pub/Sub, Firestore, dan dashboard
 
 Jalankan:
 
@@ -339,7 +339,7 @@ curl -fsS "${BACKEND_URL}/api/v1/health"
 curl -fsS "${AI_URL}/health"
 ```
 
-## Langkah 15 — Buat key gateway dan jalankan bridge
+## Langkah 15: Buat key gateway dan jalankan bridge
 
 Set Project ID pada terminal:
 
@@ -367,7 +367,7 @@ menampilkan error Google credential/Pub/Sub. Tekan `Ctrl+C` untuk keluar dari lo
 Key JSON dipakai hanya pada gateway/laptop demo. Setelah lomba, hapus key dari IAM
 Google Cloud dan buat key baru bila diperlukan; jangan pernah upload JSON ke Git.
 
-## Langkah 16 — Uji alur ujung-ke-ujung
+## Langkah 16: Uji alur ujung-ke-ujung
 
 Dengan ESP32 menyala, buka dashboard Firebase dari output deploy. Lalu pantau:
 
@@ -387,7 +387,7 @@ docker compose -f docker-compose.bridge.yml logs --tail=100 bridge
 - ketika internet gateway diputus, data menetap di outbox dan diteruskan setelah
   koneksi pulih.
 
-## Langkah 17 — Pemeriksaan keamanan terakhir
+## Langkah 17: Pemeriksaan keamanan terakhir
 
 Jalankan sebelum commit atau mengirim ZIP:
 

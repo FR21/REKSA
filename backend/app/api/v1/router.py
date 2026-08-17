@@ -188,10 +188,8 @@ async def delete_worker(worker_id: str) -> dict[str, Any]:
     if worker is None:
         raise HTTPException(status_code=404, detail="Pekerja tidak ditemukan")
     
-    # Remove worker
     simulation_engine.state["workers"] = [w for w in simulation_engine.state["workers"] if w["id"] != worker_id]
-    
-    # Clean up associated devices
+
     devices_to_keep = []
     for dev in simulation_engine.state["devices"]:
         if dev["id"] == f"HELMET-{worker_id}":
@@ -204,8 +202,7 @@ async def delete_worker(worker_id: str) -> dict[str, Any]:
         else:
             devices_to_keep.append(dev)
     simulation_engine.state["devices"] = devices_to_keep
-    
-    # Broadcast deletion
+
     await websocket_manager.broadcast("worker.deleted", {"id": worker_id})
     return {"message": "Pekerja berhasil dihapus", "id": worker_id}
 
@@ -363,7 +360,6 @@ async def pair_device(values: PairDeviceInput) -> dict[str, Any]:
     elif values.device_type == "HAZARD_NODE":
         hazard = next((h for h in simulation_engine.state["hazards"] if h["id"] == values.target_id), None)
         if hazard is None:
-            # Create new hazard on the fly
             hazard = {
                 "id": values.target_id,
                 "name": assignment or f"Hazard {values.target_id}",
@@ -425,12 +421,10 @@ async def delete_device(device_id: str) -> dict[str, Any]:
     
     simulation_engine.state["devices"] = [row for row in simulation_engine.state["devices"] if row["id"] != device_id]
     
-    # If device was a hazard node, remove the hazard from the active hazards list
     if device["type"] == "HAZARD_NODE" or device_id.startswith("HAZARD-"):
         hazard_id = device_id.replace("HAZARD-", "")
         simulation_engine.state["hazards"] = [h for h in simulation_engine.state["hazards"] if h["id"] != hazard_id]
         
-    # If device was assigned to a worker, update their status to offline & safe
     if device["type"] == "SMART_HELMET":
         worker_id = None
         parts = device["topic"].split("/")
@@ -527,7 +521,6 @@ async def send_warning(values: WarningInput) -> dict[str, Any]:
     warning = warning_service.create(values.worker_id, values.level.upper(), values.reason, buzzer=values.buzzer, vibration=values.vibration, duration_ms=values.duration_ms)
     simulation_engine.state["warnings"].insert(0, warning)
     
-    # Publish warning via MQTT
     from app.main import mqtt_service
     mqtt_service.publish(warning["mqtt_topic"], warning)
     

@@ -30,7 +30,7 @@ export function AIAdvisoryPanel({ advisory, online }: Props) {
   const semantics = advisory.probability_is_calibrated ? 'Probabilitas terkalibrasi' : 'Skor advisory belum terkalibrasi'
 
   return (
-    <Panel title="AI Early-Warning Advisory" subtitle="Prediksi pendekatan tidak aman 3–5 detik" className="action-panel">
+    <Panel title="AI Early-Warning Advisory" subtitle="Prediksi pendekatan tidak aman 3-5 detik" className="action-panel">
       <div className={`recommendation risk-bg-${ready ? tone : 'safe'}`}>
         <Cpu size={32} />
         <div>

@@ -1,140 +1,137 @@
 # REKSA
 
-**Radar Evaluasi K3 dan Sensor Ancaman Kerja**  
-Industrial Safety Monitoring System — Dynamic Hazard Awareness and Near-Miss Tracking.
+**Radar Evaluasi K3 dan Sensor Ancaman Kerja**
 
-REKSA adalah aplikasi full-stack IoT untuk memantau risiko pekerja di sekitar forklift dan peralatan industri. Aplikasi menyediakan dashboard real-time, live monitoring pekerja, registry perangkat IoT, near-miss otomatis, dan peringatan helm.
+REKSA adalah sistem pemantauan keselamatan kerja berbasis IoT untuk mendeteksi risiko pekerja di sekitar forklift dan peralatan industri. Sistem menggabungkan telemetri helm, deteksi kedekatan BLE, aturan keselamatan lokal, pencatatan near miss, dan dashboard pemantauan langsung.
 
-Fitur kompetisi utama adalah **AI early-warning advisory** berbasis temporal window
-BLE-RSSI dan MPU6050. AI tidak menggantikan state machine keselamatan lokal. Lihat
-[`docs/gemastik-strategy.md`](docs/gemastik-strategy.md) untuk strategi implementasi dan
-pemetaan ke kriteria penilaian.
+## Fitur utama
 
-> Semua seed dan analytics bawaan ditandai **SIMULATION DATA**. Skor risiko dihitung dari aturan operasional berbasis sensor.
+- Pemantauan pekerja dan perangkat secara real time melalui MQTT dan WebSocket.
+- Klasifikasi risiko berdasarkan kedekatan, kondisi lingkungan, dan benturan.
+- Peringatan lokal pada helm yang tetap bekerja tanpa koneksi cloud.
+- Pencatatan near miss dan riwayat paparan risiko.
+- Advisory prediktif dari jendela data BLE-RSSI dan MPU6050.
+- Mode simulasi untuk pengembangan dan demonstrasi tanpa perangkat fisik.
 
-## Architecture
+Advisory prediktif tidak menggantikan aturan keselamatan pada perangkat. Seluruh data bawaan untuk demonstrasi ditandai sebagai `SIMULATION DATA`.
+
+## Arsitektur
 
 ```mermaid
 flowchart LR
-  I[ESP32 / Simulator] -->|MQTT local atau TLS| M[Mosquitto / HiveMQ Cloud]
-  M --> B[FastAPI modular monolith]
-  B <--> A[REKSA AI advisory]
+  H[ESP32 atau Simulator] -->|MQTT| M[Mosquitto atau HiveMQ]
+  M --> B[FastAPI]
+  B <--> A[REKSA AI]
   B <--> D[(PostgreSQL)]
-  B -->|REST + WebSocket| R[React command center]
-  R -->|Warning / acknowledge / config| B
+  B -->|REST dan WebSocket| F[React Dashboard]
+  F -->|Warning, acknowledge, konfigurasi| B
 ```
 
-Dokumentasi detail: [architecture](docs/architecture.md), [MQTT topics](docs/mqtt-topics.md), [API](docs/api.md), dan [demo flow](docs/demo-scenarios.md).
+Komponen utama:
 
-Mulai dari sini untuk upload cloud: [panduan langkah demi langkah siap salin-tempel](PANDUAN-DEPLOY-STEP-BY-STEP.md).
-Ringkasan arsitektur: [HiveMQ, Pub/Sub, Cloud Run, Firestore, dan Firebase](docs/cloud-deployment.md).
-Alur bukti AI: [pengumpulan data nyata dan perbandingan model](docs/ai-evidence-workflow.md).
+- `frontend`: dashboard React, halaman operasional, state management, dan pengujian UI.
+- `backend`: API FastAPI, layanan keselamatan, simulasi, WebSocket, dan penyimpanan data.
+- `AI`: pipeline dataset, pelatihan model, inferensi, serta layanan advisory.
+- `arduino`: firmware helm dan node hazard berbasis ESP32.
+- `bridge`: gateway MQTT ke Google Cloud Pub/Sub dengan outbox lokal.
+- `deploy`: skrip deployment dan pemeriksaan prasyarat cloud.
+- `docs`: dokumentasi arsitektur, API, topik MQTT, deployment, dan skenario demo.
 
-## Stack
+Detail teknis tersedia di [arsitektur](docs/architecture.md), [kontrak MQTT](docs/mqtt-topics.md), dan [API](docs/api.md).
 
-- Frontend: React 19, Vite, strict TypeScript, TanStack Query, Zustand, React Router, Recharts, Lucide.
-- Backend: FastAPI, Pydantic, SQLAlchemy, Alembic, paho-mqtt, WebSocket.
-- Infrastructure: PostgreSQL 17, Eclipse Mosquitto 2, Docker Compose, Nginx.
-- Tests: Pytest, Ruff, Vitest, Testing Library, ESLint.
+## Persyaratan
 
-## Prerequisites
+Untuk menjalankan seluruh layanan dengan Docker:
 
-- Docker 24+ dan Docker Compose v2; atau Node.js 22+ dan Python 3.11–3.13.
-- Port 5173, 8000, 1883, dan 9001 tersedia.
+- Docker 24 atau lebih baru.
+- Docker Compose v2.
+- Port `5173`, `8000`, `1883`, dan `9001` tersedia.
 
-## Quick start with Docker
+Pengembangan tanpa Docker memerlukan Python 3.11 sampai 3.13 dan Node.js 22 atau lebih baru.
+
+## Menjalankan dengan Docker
 
 ```bash
-cd reksa
 docker compose up --build
 ```
 
-Buka `http://localhost:5173`. API docs berada di `http://localhost:8000/docs`. Compose menunggu health check PostgreSQL dan Mosquitto sebelum memulai backend, lalu menunggu backend sehat sebelum frontend.
+Dashboard tersedia di `http://localhost:5173` dan dokumentasi API di `http://localhost:8000/docs`.
 
-## Local installation
+Untuk menghentikan layanan:
 
 ```bash
-cd reksa
+docker compose down
+```
+
+## Pengembangan lokal
+
+Siapkan backend:
+
+```bash
 python3 -m venv .venv
 . .venv/bin/activate
 pip install -r backend/requirements.txt
-cd frontend && npm install && cd ..
 cp backend/.env.example backend/.env
-cp frontend/.env.example frontend/.env
-```
-
-Terminal 1:
-
-```bash
 cd backend
 alembic upgrade head
 uvicorn app.main:app --reload
 ```
 
-Terminal 2:
+Jalankan frontend pada terminal lain:
 
 ```bash
 cd frontend
+npm install
+cp .env.example .env
 npm run dev
 ```
 
-SQLite dipakai oleh `.env.example` untuk local development. Docker mengatur `DATABASE_URL` PostgreSQL secara otomatis.
+Layanan advisory dapat dijalankan secara terpisah:
 
-## Environment variables
+```bash
+cd AI
+pip install -e .
+uvicorn reksa_ai.service:app --host 0.0.0.0 --port 8100
+```
 
-| Variable | Default | Description |
-|---|---|---|
-| `DATABASE_URL` | `sqlite:///./reksa.db` | SQLAlchemy connection URL |
-| `MQTT_HOST` / `MQTT_PORT` | `localhost` / `1883` | Mosquitto connection |
-| `MQTT_ENABLED` | `true` | Nonaktifkan pada Cloud Run; ingest menggunakan Pub/Sub push |
-| `MQTT_USERNAME` / `MQTT_PASSWORD` | kosong | Basic authentication HiveMQ |
-| `MQTT_TLS` | `false` | Validasi TLS broker; gunakan `true` untuk HiveMQ |
-| `CORS_ORIGINS` | `http://localhost:5173` | Comma-separated explicit origins |
-| `DEVICE_OFFLINE_TIMEOUT` | `30` | Seconds before marking offline |
-| `VITE_API_URL` | `/api/v1` | Frontend REST base URL |
-| `VITE_WS_URL` | `/ws/live` | Frontend WebSocket URL |
+Nilai konfigurasi pengembangan tersedia pada berkas `.env.example` di masing-masing komponen. Jangan menyimpan kredensial atau nilai rahasia ke Git.
 
-## Live-device mode and ESP32 notes
+## Perangkat ESP32
 
-1. Matikan simulation mode dan arahkan ESP32 ke Mosquitto.
-2. Publish JSON sesuai [MQTT topic contract](docs/mqtt-topics.md), dengan timestamp ISO 8601 timezone-aware dan `message_id` unik.
-3. Gunakan QoS 1. Helm subscribe pada `REKSA/helmet/{worker_id}/warning`.
-4. Kalibrasi RSSI per area. RSSI tidak digunakan sebagai klaim koordinat x-y presisi; peta awal memakai koordinat konfigurasi/simulasi.
-5. Firmware wajib mengirim status berkala lebih cepat dari offline timeout.
+1. Salin `arduino/helm_v1/secrets.example.h` menjadi `arduino/helm_v1/secrets.h`.
+2. Isi kredensial Wi-Fi dan broker MQTT.
+3. Sesuaikan identitas pekerja dan perangkat.
+4. Kalibrasi ambang RSSI berdasarkan kondisi lapangan.
+5. Unggah firmware helm dan node hazard melalui Arduino IDE atau PlatformIO.
 
-## Testing and linting
+Payload perangkat harus mengikuti [kontrak topik MQTT](docs/mqtt-topics.md). Setiap pesan memerlukan `message_id` unik dan timestamp ISO 8601 dengan zona waktu.
+
+## Pengujian
+
+Jalankan seluruh pengujian:
 
 ```bash
 make test
+```
+
+Jalankan pemeriksaan statis dan build frontend:
+
+```bash
 make lint
-# atau
+```
+
+Perintah komponen:
+
+```bash
 cd backend && pytest && ruff check .
-cd frontend && npm test && npm run lint && npm run build
+cd ../AI && pytest && ruff check .
+cd ../frontend && npm test && npm run lint && npm run build
 ```
 
-## Demo identity
+## Deployment
 
-Versi lomba tidak memiliki login kompleks. Persona tetap yang terlihat di UI: **Raka Wijaya — Supervisor K3**. Jangan gunakan deployment ini sebagai sistem autentikasi produksi tanpa menambahkan SSO/session management.
+- [Panduan deployment](PANDUAN-DEPLOY-STEP-BY-STEP.md)
+- [Arsitektur cloud](docs/cloud-deployment.md)
+- [Workflow evaluasi model](docs/ai-evidence-workflow.md)
 
-## Troubleshooting
-
-- **WS reconnecting**: pastikan backend `/api/v1/health` merespons dan proxy `/ws` aktif.
-- **MQTT simulated**: normal di simulation mode. Periksa port 1883 serta log container untuk live mode.
-- **Database unavailable**: tunggu health check atau jalankan `docker compose logs postgres`.
-- **Skor risiko tidak berubah**: cek payload MQTT, RSSI hazard, suhu, impact, dan kualitas udara yang masuk ke backend.
-- **Port conflict**: ubah host port di `docker-compose.yml`, bukan container port.
-
-## Project structure
-
-```text
-reksa/
-├── frontend/       # React command center, pages, stores, tests
-├── backend/        # FastAPI, SQLAlchemy models, safety services
-├── mosquitto/      # Broker configuration and persisted data
-├── bridge/         # Durable HiveMQ-to-Pub/Sub gateway
-├── deploy/gcp/     # Cloud Run, Pub/Sub, Firestore, Firebase scripts
-├── docs/           # Architecture, MQTT, API, and demo guide
-├── docker-compose.yml
-├── Makefile
-└── README.md
-```
+Deployment demonstrasi menggunakan persona supervisor tetap dan belum menyediakan autentikasi produksi. Tambahkan autentikasi, otorisasi, pengelolaan rahasia, dan audit akses sebelum digunakan di lingkungan operasional.

@@ -103,7 +103,7 @@ Window hanya memakai data sampai `window_ended_at`. Target dicari setelah titik 
 Notebook lengkap untuk kedua AI tersedia di:
 
 ```text
-notebooks/REKSA_AI_Training_Complete.ipynb
+notebooks/Reksa_AI.ipynb
 ```
 
 Notebook tersebut memperlihatkan seluruh proses secara eksplisit: import, cleaning, leakage audit, participant holdout, grouped cross-validation, preprocessing, baseline comparison, calibration, evaluasi, feature importance, artifact export, dan inference example.
@@ -136,7 +136,7 @@ uvicorn reksa_ai.service:app --host 0.0.0.0 --port 8100
 
 ## Catatan sampling forecaster
 
-`helm_v1.ino` saat ini publish setiap sekitar 2,5 detik. Window 10 detik hanya mempunyai sekitar empat sampel, yang terlalu kasar untuk menangkap bentuk gerakan secara baik. Untuk eksperimen forecaster, rekam BLE + MPU6050 pada 5–10 Hz melalui topik telemetry khusus atau buffer lokal. Jalur MQTT dashboard 2,5 detik dapat tetap dipertahankan agar tidak membanjiri backend.
+`helm_v1.ino` saat ini publish setiap sekitar 2,5 detik. Window 10 detik hanya mempunyai sekitar empat sampel, yang terlalu kasar untuk menangkap bentuk gerakan secara baik. Untuk eksperimen forecaster, rekam BLE + MPU6050 pada 5-10 Hz melalui topik telemetry khusus atau buffer lokal. Jalur MQTT dashboard 2,5 detik dapat tetap dipertahankan agar tidak membanjiri backend.
 
 Model forecaster sebaiknya dijalankan di backend lebih dahulu. Pemindahan ke ESP32 baru dilakukan setelah model terbukti lebih baik dari threshold baseline, ukuran flash/RAM cukup, waktu inference terukur, dan state machine lokal tetap memiliki prioritas tertinggi.
 

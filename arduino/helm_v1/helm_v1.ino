@@ -16,17 +16,13 @@
 #error "Salin secrets.example.h menjadi secrets.h dan isi kredensial WiFi/HiveMQ."
 #endif
 
-// =====================================================
 // IDENTITAS PERANGKAT
-// =====================================================
 
 const char* HELMET_NAME = "REKSA_HELMET_W01";
 const char* WORKER_ID = "W01"; // ID Pekerja untuk Topic MQTT
 const char* HAZARD_PREFIX = "REKSA_HAZARD_";
 
-// =====================================================
 // KONFIGURASI WIFI & MQTT
-// =====================================================
 
 const char* WIFI_SSID = REKSA_WIFI_SSID;
 const char* WIFI_PASSWORD = REKSA_WIFI_PASSWORD;
@@ -66,9 +62,7 @@ struct PendingTelemetry {
 PendingTelemetry telemetryQueue[TELEMETRY_QUEUE_CAPACITY] = {};
 uint32_t telemetryDroppedCount = 0;
 
-// =====================================================
 // KONFIGURASI PIN
-// =====================================================
 
 constexpr uint8_t DHT_PIN = 18;
 constexpr uint8_t DHT_TYPE = DHT22;
@@ -93,9 +87,7 @@ constexpr bool VIBRATION_ACTIVE_LOW = false;
  */
 constexpr bool RUN_OUTPUT_SELF_TEST = false;
 
-// =====================================================
 // KONFIGURASI DHT22
-// =====================================================
 
 constexpr unsigned long DHT_READ_INTERVAL_MS = 2500;
 DHT dht(DHT_PIN, DHT_TYPE);
@@ -105,9 +97,7 @@ float latestHumidity = NAN;
 bool dhtValid = false;
 unsigned long lastDhtReadAt = 0;
 
-// =====================================================
 // KONFIGURASI MPU6050 DAN MQ135
-// =====================================================
 
 constexpr uint8_t MPU6050_ADDRESS = 0x68;
 constexpr uint8_t MPU6050_PWR_MGMT_1 = 0x6B;
@@ -165,9 +155,7 @@ const char* latestAirQualityLevel = "UNKNOWN";
 bool latestGasAlert = false;
 unsigned long lastSensorReadAt = 0;
 
-// =====================================================
 // KONFIGURASI BLE DAN HAZARD
-// =====================================================
 
 constexpr uint8_t MAX_HAZARDS = 10;
 constexpr uint8_t BLE_SCAN_SECONDS = 1;
@@ -186,9 +174,7 @@ constexpr int RSSI_HYSTERESIS_DB = 3;
 
 NimBLEScan* bleScan = nullptr;
 
-// =====================================================
 // KONFIGURASI POLA WARNING
-// =====================================================
 
 // HIGH: buzzer dan vibration berdenyut cepat.
 constexpr unsigned long HIGH_ON_MS = 200;
@@ -200,9 +186,7 @@ constexpr unsigned long HIGH_OFF_MS = 100;
 // Nilai ini dibaca oleh task warning.
 volatile uint8_t currentWarningPriority = 0;
 
-// =====================================================
 // TIPE DATA
-// =====================================================
 
 enum class ProximityZone : uint8_t {
   ZONE_UNKNOWN = 0,
@@ -235,9 +219,7 @@ struct HazardData {
 
 HazardData hazards[MAX_HAZARDS];
 
-// =====================================================
 // KONTROL OUTPUT
-// =====================================================
 
 void setModuleOutput(uint8_t pin, bool active, bool activeLow) {
   const uint8_t outputLevel = active
@@ -289,9 +271,7 @@ void testWarningModules() {
   Serial.println("Self-test selesai");
 }
 
-// =====================================================
 // UTILITAS ZONA
-// =====================================================
 
 const char* zoneToString(ProximityZone zone) {
   switch (zone) {
@@ -400,9 +380,7 @@ ProximityZone determineZoneWithHysteresis(
   }
 }
 
-// =====================================================
 // PENGELOLAAN DATA HAZARD
-// =====================================================
 
 void resetHazard(HazardData& hazard) {
   hazard.used = false;
@@ -585,9 +563,7 @@ void removeInactiveHazards() {
   }
 }
 
-// =====================================================
 // CALLBACK BLE
-// =====================================================
 
 class ScanCallbacks : public NimBLEScanCallbacks {
   void onResult(
@@ -615,9 +591,7 @@ class ScanCallbacks : public NimBLEScanCallbacks {
   }
 };
 
-// =====================================================
 // DHT22
-// =====================================================
 
 void updateDHT22() {
   const unsigned long currentTime = millis();
@@ -645,9 +619,7 @@ void updateDHT22() {
   dhtValid = true;
 }
 
-// =====================================================
 // MPU6050 DAN MQ135
-// =====================================================
 
 bool writeMPU6050Register(uint8_t reg, uint8_t value) {
   Wire.beginTransmission(MPU6050_ADDRESS);
@@ -794,9 +766,7 @@ void updateMotionAndAirQuality() {
   latestMotion.fallDetected = totalG <= FALL_FREEFALL_THRESHOLD_G;
 }
 
-// =====================================================
 // PENENTUAN HAZARD PRIORITAS
-// =====================================================
 
 int getMostDangerousHazardIndex() {
   int selectedIndex = -1;
@@ -840,9 +810,7 @@ void updateWarningPriority() {
     getZonePriority(hazards[hazardIndex].zone);
 }
 
-// =====================================================
 // TASK WARNING NON-BLOCKING
-// =====================================================
 
 void warningTask(void* parameter) {
   uint8_t previousPriority = 255;
@@ -853,7 +821,6 @@ void warningTask(void* parameter) {
     const uint8_t priority = currentWarningPriority;
     const unsigned long currentTime = millis();
 
-    // Terapkan kondisi awal setiap kali level warning berubah.
     if (priority != previousPriority) {
       previousPriority = priority;
       vibrationPhaseOn = false;
@@ -861,12 +828,10 @@ void warningTask(void* parameter) {
       stopAllWarnings();
 
       if (priority == 3) {
-        // HIGH: buzzer dan vibration mulai dalam kondisi ON.
         vibrationPhaseOn = true;
         setBuzzer(true);
         setVibration(true);
       } else if (priority == 4) {
-        // CRITICAL: buzzer dan vibration menyala terus.
         setBuzzer(true);
         setVibration(true);
       }
@@ -881,7 +846,6 @@ void warningTask(void* parameter) {
     }
 
     if (priority == 3) {
-      // HIGH: buzzer dan vibration berdenyut cepat bersamaan.
       const unsigned long phaseDuration =
         vibrationPhaseOn ? HIGH_ON_MS : HIGH_OFF_MS;
 
@@ -896,11 +860,9 @@ void warningTask(void* parameter) {
         setVibration(vibrationPhaseOn);
       }
     } else if (priority == 4) {
-      // CRITICAL: pertahankan kedua output tetap menyala.
       setBuzzer(true);
       setVibration(true);
     } else {
-      // SAFE, MODERATE, atau tidak ada hazard.
       stopAllWarnings();
     }
 
@@ -908,9 +870,7 @@ void warningTask(void* parameter) {
   }
 }
 
-// =====================================================
 // OUTPUT SERIAL
-// =====================================================
 
 void printDHTData() {
   Serial.println();
@@ -1103,9 +1063,7 @@ void printWarningStatus() {
   );
 }
 
-// =====================================================
 // WIFI & MQTT PROCEDURES
-// =====================================================
 
 bool waitForValidTlsClock(unsigned long timeoutMs) {
 #if !REKSA_MQTT_USE_TLS
@@ -1258,7 +1216,6 @@ void reconnectMQTT() {
     if (mqttClient.connect(clientId.c_str(), MQTT_USERNAME, MQTT_PASSWORD)) {
       Serial.println("Terhubung!");
       
-      // Subscribe ke topik warning
       String topic = "REKSA/helmet/";
       topic += WORKER_ID;
       topic += "/warning";
@@ -1448,9 +1405,7 @@ void publishSensorData() {
   flushTelemetryQueue();
 }
 
-// =====================================================
 // SETUP
-// =====================================================
 
 void setup() {
   Serial.begin(115200);
@@ -1530,7 +1485,6 @@ void setup() {
     );
   }
 
-  // Inisialisasi WiFi dan MQTT
   setupWiFi();
   mqttClient.setServer(MQTT_SERVER, MQTT_PORT);
   mqttClient.setBufferSize(MQTT_BUFFER_SIZE);
@@ -1541,22 +1495,17 @@ void setup() {
 #endif
 }
 
-// =====================================================
 // LOOP
-// =====================================================
 
 void loop() {
-  // Pastikan WiFi terhubung
   if (WiFi.status() != WL_CONNECTED) {
     setupWiFi();
   }
 
-  // Pastikan MQTT terhubung
   if (WiFi.status() == WL_CONNECTED && !mqttClient.connected()) {
     reconnectMQTT();
   }
 
-  // Jalankan MQTT Loop
   if (mqttClient.connected()) {
     mqttClient.loop();
     flushTelemetryQueue();
@@ -1580,7 +1529,6 @@ void loop() {
   printHazardList();
   printWarningStatus();
 
-  // Kirim data sensor ke dashboard web secara berkala via MQTT
   static unsigned long lastPublish = 0;
   if (millis() - lastPublish >= 2500) {
     lastPublish = millis();

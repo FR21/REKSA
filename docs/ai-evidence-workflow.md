@@ -3,7 +3,7 @@
 ## Rekam data perangkat nyata
 
 Publikasi dashboard 2,5 detik terlalu jarang untuk pola temporal. Untuk eksperimen AI,
-gunakan sesi 5–10 Hz melalui topik khusus atau buffer lokal, lalu simpan identitas
+gunakan sesi 5-10 Hz melalui topik khusus atau buffer lokal, lalu simpan identitas
 peserta, sesi, skenario, dan trajectory.
 
 Logger mendukung HiveMQ TLS:

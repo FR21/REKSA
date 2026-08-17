@@ -14,16 +14,14 @@ async def handle_mqtt_message(topic: str, payload: dict[str, Any]) -> None:
         if len(parts) < 3:
             return
 
-        category = parts[1]  # e.g. helmet, hazard, environment
+        category = parts[1]
         now = datetime.now(UTC).isoformat()
 
         if category == "helmet":
             worker_id = parts[2]
-            # Find the worker in state
             worker = next((w for w in simulation_engine.state["workers"] if w["id"] == worker_id), None)
             if worker:
                 air_quality = payload.get("air_quality") or {}
-                # Update worker state
                 worker.update({
                     "online": True,
                     "impact": payload.get("impact_detected", False),
@@ -49,7 +47,6 @@ async def handle_mqtt_message(topic: str, payload: dict[str, Any]) -> None:
                     "calculation_source": "HARDWARE_MQTT",
                 })
 
-                # Process closest hazard if present
                 closest_hazard = payload.get("closest_hazard")
                 if closest_hazard:
                     hz_id = closest_hazard.get("hazard_id")
@@ -58,11 +55,9 @@ async def handle_mqtt_message(topic: str, payload: dict[str, Any]) -> None:
                     rssi = closest_hazard.get("rssi", -100)
                     proximity = closest_hazard.get("proximity_level", "SAFE")
 
-                    # Find hazard name
                     hz = next((h for h in simulation_engine.state["hazards"] if h["id"] == hz_id), None)
                     hz_name = hz["name"] if hz else f"Hazard {hz_id}"
 
-                    # Map proximity to risk level and score
                     risk_level = proximity.upper()
                     if risk_level == "CRITICAL":
                         risk_score = 92
@@ -102,7 +97,6 @@ async def handle_mqtt_message(topic: str, payload: dict[str, Any]) -> None:
                             "recommended_action": "Tinggalkan area bahaya segera. Pastikan jarak aman minimal 15 meter dari alat berat yang beroperasi.",
                         })
 
-                    # Check if near miss needs to be created
                     if risk_level == "CRITICAL" and not simulation_engine._near_miss_created:
                         event = {
                             "id": f"NM-{datetime.now(UTC).strftime('%H%M%S')}",
@@ -114,7 +108,7 @@ async def handle_mqtt_message(topic: str, payload: dict[str, Any]) -> None:
                             "hazard_type": hz_type,
                             "proximity": "CRITICAL",
                             "rssi": rssi,
-                            "duration": 5.0,  # default hardware duration
+                            "duration": 5.0,
                             "hazard_status": hz_status,
                             "risk_score": risk_score,
                             "risk_level": "CRITICAL",
@@ -180,10 +174,8 @@ async def handle_mqtt_message(topic: str, payload: dict[str, Any]) -> None:
                         {"worker_id": worker_id, "advisory": ai_advisory},
                     )
 
-                # Broadcast updated worker
                 await websocket_manager.broadcast("worker.updated", worker)
 
-                # Also update corresponding device in state
                 dev_id = f"HELMET-{worker_id}"
                 device = next((d for d in simulation_engine.state["devices"] if d["id"] == dev_id), None)
                 if device:
@@ -204,7 +196,6 @@ async def handle_mqtt_message(topic: str, payload: dict[str, Any]) -> None:
                     "status": payload.get("operating_status", hazard.get("status", "ACTIVE")),
                     "last_update": now,
                 })
-                # Update corresponding device
                 dev_id = f"HAZARD-{hazard_id}"
                 device = next((d for d in simulation_engine.state["devices"] if d["id"] == dev_id), None)
                 if device:
@@ -217,7 +208,6 @@ async def handle_mqtt_message(topic: str, payload: dict[str, Any]) -> None:
 
         elif category == "environment":
             env_id = parts[2]
-            # Find environment device
             dev_id = f"ENV-{env_id}"
             device = next((d for d in simulation_engine.state["devices"] if d["id"] == dev_id), None)
             if device:

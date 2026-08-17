@@ -28,7 +28,7 @@ mencegah retransmission diproses dua kali.
 ## 2. Bukti disconnect, reconnect, dan retransmission
 
 1. Jalankan helmet sampai serial monitor menampilkan `Telemetry diterima`.
-2. Putuskan Wi-Fi selama 15–20 detik dan tetap gerakkan helmet pada skenario uji.
+2. Putuskan Wi-Fi selama 15-20 detik dan tetap gerakkan helmet pada skenario uji.
 3. Catat `message_id`, jumlah buffer, dan `dropped` pada serial monitor.
 4. Sambungkan Wi-Fi kembali.
 5. Buktikan ID lama dikirim dengan `attempt > 1`, ACK diterima, dan backend hanya

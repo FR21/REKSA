@@ -12,7 +12,6 @@ export default function WorkersPage() {
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
 
-  // Form states
   const [workerId, setWorkerId] = useState('')
   const [name, setName] = useState('')
   const [role, setRole] = useState('Operator')
@@ -20,7 +19,6 @@ export default function WorkersPage() {
   const [successMsg, setSuccessMsg] = useState('')
   const [errorMsg, setErrorMsg] = useState('')
 
-  // Queries
   const workersQuery = useQuery({
     queryKey: ['workers'],
     queryFn: () => api<{ items: Worker[] }>('/workers')
@@ -31,7 +29,6 @@ export default function WorkersPage() {
     queryFn: () => api<{ items: Device[] }>('/devices')
   })
 
-  // Mutations
   const createWorkerMutation = useMutation({
     mutationFn: (data: { id: string; name: string; role: string; area: string }) =>
       api<{ worker: Worker; message: string }>('/workers', {
@@ -89,7 +86,6 @@ export default function WorkersPage() {
     }
   }
 
-  // Filtered workers
   const filteredWorkers = workersQuery.data?.items.filter((w) =>
     w.name.toLowerCase().includes(search.toLowerCase()) ||
     w.id.toLowerCase().includes(search.toLowerCase()) ||
@@ -107,7 +103,6 @@ export default function WorkersPage() {
 
   return (
     <div className="stack-lg wide-page workers-page">
-      {/* Overview/KPI strip for admin overview */}
       <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginBottom: '8px' }}>
         <KpiCard label="TOTAL WORKFORCE" value={totalWorkers} detail="Terdaftar dalam sistem" icon={Users} tone="blue" />
         <KpiCard label="ACTIVE HELMETS" value={onlineCount} detail={`${totalWorkers - onlineCount} perangkat offline`} icon={HardHat} tone="green" />
@@ -115,7 +110,6 @@ export default function WorkersPage() {
       </div>
 
       <div className="device-registry-grid">
-        {/* Workers List Table */}
         <div className="stack-md">
           <Panel
             title="Workforce Directory"
@@ -212,7 +206,6 @@ export default function WorkersPage() {
           </Panel>
         </div>
 
-        {/* Register Worker Form Panel */}
         <div className="device-form-panel">
           <h3>Pendaftaran Pekerja Baru</h3>
           <p style={{ fontSize: '13px', color: 'var(--muted)', margin: '-10px 0 20px 0', lineHeight: 1.4 }}>

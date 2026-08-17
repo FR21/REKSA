@@ -787,7 +787,7 @@ cells = [
 notebook = {
     "cells": cells,
     "metadata": {
-        "colab": {"name": "REKSA_AI_Training_Complete.ipynb", "provenance": []},
+        "colab": {"name": "Reksa_AI.ipynb", "provenance": []},
         "kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"},
         "language_info": {"name": "python", "version": "3.11"},
     },
@@ -795,6 +795,6 @@ notebook = {
     "nbformat_minor": 5,
 }
 
-output = Path(__file__).resolve().parents[1] / "notebooks/REKSA_AI_Training_Complete.ipynb"
+output = Path(__file__).resolve().parents[1] / "notebooks/Reksa_AI.ipynb"
 output.write_text(json.dumps(notebook, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
 print(f"Built {output} with {len(cells)} cells")

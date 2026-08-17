@@ -4,6 +4,7 @@ __pycache__/
 *.db
 .pytest_cache/
 .ruff_cache/
+*.egg-info/
 .venv/
 node_modules/
 dist/
@@ -20,3 +21,7 @@ bridge/data/
 .env.hivemq
 secrets/
 .firebaserc
+.firebase/
+.artifacts/
+output/documents/
+.~lock.*#
