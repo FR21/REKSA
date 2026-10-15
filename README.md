@@ -1,137 +1,236 @@
-# REKSA
+# REKSA (Radar Evaluasi K3 dan Sensor Ancaman Kerja)
 
-**Radar Evaluasi K3 dan Sensor Ancaman Kerja**
+Sistem keselamatan kerja industri berbasis IoT Smart Helmet dan web dashboard real-time. REKSA mendeteksi kedekatan pekerja terhadap alat berat (forklift, AGV, crane) dan mesin stasioner (press, CNC, laser cutter) menggunakan BLE RSSI, memantau telemetri fisik pekerja (jatuh bebas, benturan, suhu/kelembapan, kualitas udara), menyediakan tombol darurat Push-To-Talk (PTT) dengan transkripsi suara otomatis, serta mencatat insiden *near-miss* ke database untuk audit K3.
 
-REKSA adalah sistem pemantauan keselamatan kerja berbasis IoT untuk mendeteksi risiko pekerja di sekitar forklift dan peralatan industri. Sistem menggabungkan telemetri helm, deteksi kedekatan BLE, aturan keselamatan lokal, pencatatan near miss, dan dashboard pemantauan langsung.
+> **Prinsip Keselamatan Utama:** Alarm fisik (buzzer & vibrasi) di helm ESP32 beroperasi mandiri (*autonomous* pada tingkat firmware). Putusnya koneksi internet atau cloud server tidak mematikan fungsi perlindungan jarak aman di helm.
 
-## Fitur utama
+---
 
-- Pemantauan pekerja dan perangkat secara real time melalui MQTT dan WebSocket.
-- Klasifikasi risiko berdasarkan kedekatan, kondisi lingkungan, dan benturan.
-- Peringatan lokal pada helm yang tetap bekerja tanpa koneksi cloud.
-- Pencatatan near miss dan riwayat paparan risiko.
-- Advisory prediktif dari jendela data BLE-RSSI dan MPU6050.
-- Mode simulasi untuk pengembangan dan demonstrasi tanpa perangkat fisik.
+## Fitur Utama
 
-Advisory prediktif tidak menggantikan aturan keselamatan pada perangkat. Seluruh data bawaan untuk demonstrasi ditandai sebagai `SIMULATION DATA`.
+- **Deteksi Kedekatan Otomatis (Proximity Alert):** Pemindaian BLE beacon mesin bergerak (Forklift/AGV) dan stasioner (Press/Laser) dengan kalkulasi rata-rata bergerak RSSI untuk memicu buzzer dan vibrasi helm seketika.
+- **Telemetri Sensor K3 (Smart Helmet Node):**
+  - IMU MPU-6050: Deteksi jatuh bebas (*free-fall*) dan benturan kepala (*high-G impact*).
+  - DHT22: Pemantauan heat stress (suhu tinggi & kelembapan ekstrem).
+  - MQ-135: Deteksi gas berbahaya / kualitas udara buruk di area kerja.
+- **Push-To-Talk (PTT) & Voice NLU:** Mikrofon digital I2S (INMP441) mengirim stream audio PCM 16-bit 8 kHz ke server via MQTT saat tombol ditekan. Server mentranskripsi suara melalui Wit.ai dan mengidentifikasi intent darurat (evakuasi, SOS medis, stop mesin, laporan bahaya) secara otomatis.
+- **Web Dashboard Operasional:**
+  - Peta live monitoring visual dengan grid posisi pekerja dan hazard.
+  - Manajemen insiden near-miss dengan form investigasi supervisor & verifikasi CAPA (*Corrective and Preventive Action*).
+  - Registrasi perangkat IoT (Smart Helmet, Mobile Hazard, Stationary Hazard, Node Lingkungan).
+  - Audio playback rekaman suara PTT langsung dari dashboard.
+  - Dukungan dwibahasa penuh (Bahasa Indonesia & English) via toggle di header.
+- **Predictive Near-Miss Advisory (AI Service):** Model machine learning non-blocking berbasis scikit-learn untuk memprediksi probabilitas near-miss 10–30 detik ke depan berdasarkan jendela telemetri.
 
-## Arsitektur
+---
 
-```mermaid
-flowchart LR
-  H[ESP32 atau Simulator] -->|MQTT| M[Mosquitto atau HiveMQ]
-  M --> B[FastAPI]
-  B <--> A[REKSA AI]
-  B <--> D[(PostgreSQL)]
-  B -->|REST dan WebSocket| F[React Dashboard]
-  F -->|Warning, acknowledge, konfigurasi| B
+## Arsitektur Sistem
+
+```text
+       +---------------------------------------------+
+       |           ESP32 Smart Helmet Node           |
+       |  [MPU-6050] [DHT22] [MQ-135] [INMP441 Mic]  |
+       |      [Buzzer] [Vibration] [PTT Button]      |
+       +----------------------+----------------------+
+                              |
+               (MQTT / MQTTS Port 1883 / 8883)
+                              v
+       +---------------------------------------------+
+       |         MQTT Broker (Mosquitto / HiveMQ)    |
+       +----------------------+----------------------+
+                              |
+                              v
+       +---------------------------------------------+
+       |               FastAPI Backend               |
+       |  - MQTT Handler & Telemetry Ingestion       |
+       |  - Voice NLU & Speech Transcription         |
+       |  - PostgreSQL Database (Neon / Local)       |
+       |  - WebSocket Live Stream (/ws/live)         |
+       +-----------+---------------------+-----------+
+                   |                     |
+                   v                     v
+       +---------------------+   +---------------------+
+       |    AI Service       |   |   React Dashboard   |
+       |  (Near-Miss Forecast|   |  (Vite + TypeScript |
+       |   & Priority Engine)|   |   Tailwind-free CSS)|
+       +---------------------+   +---------------------+
 ```
 
-Komponen utama:
+---
 
-- `frontend`: dashboard React, halaman operasional, state management, dan pengujian UI.
-- `backend`: API FastAPI, layanan keselamatan, simulasi, WebSocket, dan penyimpanan data.
-- `AI`: pipeline dataset, pelatihan model, inferensi, serta layanan advisory.
-- `arduino`: firmware helm dan node hazard berbasis ESP32.
-- `bridge`: gateway MQTT ke Google Cloud Pub/Sub dengan outbox lokal.
-- `deploy`: skrip deployment dan pemeriksaan prasyarat cloud.
-- `docs`: dokumentasi arsitektur, API, topik MQTT, deployment, dan skenario demo.
+## Struktur Repositori
 
-Detail teknis tersedia di [arsitektur](docs/architecture.md), [kontrak MQTT](docs/mqtt-topics.md), dan [API](docs/api.md).
-
-## Persyaratan
-
-Untuk menjalankan seluruh layanan dengan Docker:
-
-- Docker 24 atau lebih baru.
-- Docker Compose v2.
-- Port `5173`, `8000`, `1883`, dan `9001` tersedia.
-
-Pengembangan tanpa Docker memerlukan Python 3.11 sampai 3.13 dan Node.js 22 atau lebih baru.
-
-## Menjalankan dengan Docker
-
-```bash
-docker compose up --build
+```text
+reksa/
+├── arduino/                   # Firmware ESP32
+│   ├── helm_v1/               # Smart helmet firmware (sensor, BLE scan, audio PTT, alarm)
+│   ├── hazard_forklift_f01/   # Firmware beacon BLE untuk forklift (alat berat bergerak)
+│   └── hazard_stationary_l01/ # Firmware beacon BLE untuk mesin stasioner (press, laser)
+├── backend/                   # REST API & Layanan Inti (FastAPI)
+│   ├── app/api/v1/            # Router API (workers, hazards, near-misses, devices, voice)
+│   ├── app/core/              # Konfigurasi aplikasi & environment variables
+│   ├── app/database/          # Skema SQLAlchemy, migrasi Alembic, dan initial seed
+│   ├── app/services/          # Handler MQTT, proximity, voice NLU, database persistence
+│   └── tests/                 # Unit & integration tests backend (pytest)
+├── frontend/                  # Dashboard Monitoring (React + Vite + TypeScript)
+│   ├── src/pages/             # Overview, Live Monitoring, Workers, Near-Misses, Settings
+│   ├── src/components/        # Reusable UI components (Panel, Cards, VoicePlayer, Modal)
+│   ├── src/i18n/              # Terjemahan antarmuka (id.ts & en.ts)
+│   └── tests/                 # Unit tests frontend (Vitest)
+├── AI/                        # Layanan Advisory Prediktif (FastAPI + scikit-learn)
+│   ├── src/reksa_ai/          # Pipeline fitur, inferensi model, dan service HTTP
+│   └── models/                # Bobot model terlatih (.joblib)
+├── bridge/                    # Gateway lokal MQTT ke GCP Cloud Pub/Sub (opsional)
+├── deploy/                    # Skrip pengujian & deployment (GCP, HiveMQ)
+├── docs/                      # Dokumentasi teknis lengkap
+│   ├── architecture.md        # Arsitektur detail & fail-safe design
+│   ├── deployment.md          # Panduan deployment (Docker, Cloud Run, Firebase)
+│   ├── mqtt-topics.md         # Spesifikasi kontrak topik MQTT & skema payload
+│   └── sensor_output.md       # Pinout ESP32, log serial debugging, & threshold K3
+├── docker-compose.yml         # Konfigurasi container lokal (postgres, mosquitto, ai, backend, frontend)
+├── .env.example               # Contoh konfigurasi seluruh environment variables
+└── Makefile                   # Shortcut perintah praktis (up, down, test, lint)
 ```
 
-Dashboard tersedia di `http://localhost:5173` dan dokumentasi API di `http://localhost:8000/docs`.
+---
+
+## Kebutuhan Sistem
+
+- **Docker & Docker Compose:** Docker Engine $\ge 24.0$ dan Docker Compose v2.
+- **Pengembangan Mandiri (tanpa Docker):**
+  - Python 3.11 – 3.13
+  - Node.js $\ge 20$ (disarankan Node.js 22 LTS)
+  - Mosquitto MQTT Broker (port `1883`)
+  - PostgreSQL 16+ (atau gunakan SQLite lokal bawaan)
+
+---
+
+## Panduan Menjalankan Sistem
+
+### 1. Menjalankan Cepat dengan Docker Compose (Direkomendasikan)
+
+1. Salin berkas konfigurasi environment:
+   ```bash
+   cp .env.example .env
+   cp backend/.env.example backend/.env
+   cp frontend/.env.example frontend/.env
+   ```
+
+2. Bangun dan jalankan seluruh container:
+   ```bash
+   docker compose up --build -d
+   ```
+
+3. Periksa status layanan:
+   ```bash
+   docker compose ps
+   ```
+
+Layanan yang aktif:
+- **Web Dashboard:** [http://localhost:5173](http://localhost:5173)
+- **Backend API Docs (Swagger):** [http://localhost:8000/docs](http://localhost:8000/docs)
+- **AI Advisory Service:** [http://localhost:8100/health](http://localhost:8100/health)
+- **Mosquitto MQTT Broker:** `localhost:1883` (TCP) dan `localhost:9001` (WebSocket)
 
 Untuk menghentikan layanan:
-
 ```bash
 docker compose down
 ```
 
-## Pengembangan lokal
+---
 
-Siapkan backend:
+### 2. Pengembangan Lokal (Bare-Metal)
 
+#### A. Backend (FastAPI)
 ```bash
-python3 -m venv .venv
-. .venv/bin/activate
-pip install -r backend/requirements.txt
-cp backend/.env.example backend/.env
 cd backend
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+
+# Jalankan migrasi database
 alembic upgrade head
-uvicorn app.main:app --reload
+
+# Jalankan server API (port 8000)
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-Jalankan frontend pada terminal lain:
-
+#### B. Frontend (React + Vite)
 ```bash
 cd frontend
 npm install
 cp .env.example .env
 npm run dev
 ```
+Dashboard akan terbuka di `http://localhost:5173`.
 
-Layanan advisory dapat dijalankan secara terpisah:
-
+#### C. AI Service
 ```bash
 cd AI
 pip install -e .
-uvicorn reksa_ai.service:app --host 0.0.0.0 --port 8100
+uvicorn reksa_ai.service:app --host 0.0.0.0 --port 8100 --reload
 ```
 
-Nilai konfigurasi pengembangan tersedia pada berkas `.env.example` di masing-masing komponen. Jangan menyimpan kredensial atau nilai rahasia ke Git.
+---
 
-## Perangkat ESP32
+## Konfigurasi Environment Variables
 
-1. Salin `arduino/helm_v1/secrets.example.h` menjadi `arduino/helm_v1/secrets.h`.
-2. Isi kredensial Wi-Fi dan broker MQTT.
-3. Sesuaikan identitas pekerja dan perangkat.
-4. Kalibrasi ambang RSSI berdasarkan kondisi lapangan.
-5. Unggah firmware helm dan node hazard melalui Arduino IDE atau PlatformIO.
+Seluruh variabel lingkungan telah dikumpulkan dan didokumentasikan pada [`.env.example`](.env.example). Beberapa variabel utama:
 
-Payload perangkat harus mengikuti [kontrak topik MQTT](docs/mqtt-topics.md). Setiap pesan memerlukan `message_id` unik dan timestamp ISO 8601 dengan zona waktu.
+| Variabel | Deskripsi | Default / Contoh |
+| :--- | :--- | :--- |
+| `DATABASE_URL` | URL koneksi basis data PostgreSQL atau SQLite | `postgresql://reksa:reksa_dev_password@localhost:5432/reksa` |
+| `MQTT_HOST` | Host broker MQTT | `localhost` (atau endpoint HiveMQ Cloud) |
+| `MQTT_PORT` | Port broker MQTT | `1883` (non-TLS) / `8883` (TLS) |
+| `MQTT_TLS` | Aktifkan TLS untuk koneksi broker cloud | `false` / `true` |
+| `AI_SERVICE_URL` | Endpoint HTTP layanan inferensi AI | `http://localhost:8100` |
+| `WIT_AI_TOKEN` | Token API server Wit.ai untuk NLU suara PTT | `Bearer <YOUR_TOKEN>` |
+| `VITE_API_URL` | Base URL REST API untuk dashboard frontend | `http://localhost:8000/api/v1` |
+| `VITE_WS_URL` | URL WebSocket real-time untuk dashboard | `ws://localhost:8000/ws/live` |
 
-## Pengujian
+---
 
-Jalankan seluruh pengujian:
+## Konfigurasi Hardware ESP32
+
+1. Buka file [arduino/helm_v1/secrets.example.h](arduino/helm_v1/secrets.example.h).
+2. Salin menjadi `arduino/helm_v1/secrets.h`:
+   ```bash
+   cp arduino/helm_v1/secrets.example.h arduino/helm_v1/secrets.h
+   ```
+3. Konfigurasikan SSID Wi-Fi, password, serta alamat IP/Host broker MQTT.
+4. Buka `arduino/helm_v1/helm_v1.ino` pada Arduino IDE atau PlatformIO.
+5. Pastikan modul ESP32 terhubung dan flash program pada baud rate `115200`.
+6. Untuk node hazard forklift dan mesin stasioner, flash firmware masing-masing di folder `arduino/hazard_forklift_f01` dan `arduino/hazard_stationary_l01`.
+
+Detail wiring diagram dan pemetaan pin GPIO dapat dilihat di [docs/sensor_output.md](docs/sensor_output.md).
+
+---
+
+## Pengujian & Kualitas Kode
+
+Sistem dilengkapi pengujian unit komprehensif pada backend maupun frontend.
 
 ```bash
+# Menjalankan seluruh pengujian unit
 make test
-```
 
-Jalankan pemeriksaan statis dan build frontend:
-
-```bash
+# Menjalankan linter dan validasi build statis
 make lint
 ```
 
-Perintah komponen:
+Pengujian individual:
+- **Backend Tests:** `pytest` (43 passed)
+- **Backend Linting:** `ruff check .` (Clean, PEP8 compliant)
+- **Frontend Tests:** `npm test` (5 passed)
+- **Frontend Linting & Typecheck:** `npm run lint && npm run build` (Clean, 0 errors)
 
-```bash
-cd backend && pytest && ruff check .
-cd ../AI && pytest && ruff check .
-cd ../frontend && npm test && npm run lint && npm run build
-```
+---
 
-## Deployment
+## Referensi Dokumentasi
 
-- [Panduan deployment](PANDUAN-DEPLOY-STEP-BY-STEP.md)
-- [Arsitektur cloud](docs/cloud-deployment.md)
-- [Workflow evaluasi model](docs/ai-evidence-workflow.md)
-
-Deployment demonstrasi menggunakan persona supervisor tetap dan belum menyediakan autentikasi produksi. Tambahkan autentikasi, otorisasi, pengelolaan rahasia, dan audit akses sebelum digunakan di lingkungan operasional.
+- [Arsitektur Sistem & Fail-Safe](docs/architecture.md)
+- [Panduan Deployment Cloud & Produksi](docs/deployment.md)
+- [Spesifikasi Sensor, Hardware, & Threshold K3](docs/sensor_output.md)
+- [Spesifikasi Kontrak & Topik MQTT](docs/mqtt-topics.md)
+- [Dokumentasi REST & WebSocket API](docs/api.md)

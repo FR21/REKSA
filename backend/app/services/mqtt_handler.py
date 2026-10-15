@@ -8,7 +8,7 @@ from app.simulation.engine import simulation_engine
 logger = logging.getLogger(__name__)
 
 
-async def handle_mqtt_message(topic: str, payload: dict[str, Any]) -> None:
+async def handle_mqtt_message(topic: str, payload: dict[str, Any] | bytes) -> None:
     try:
         parts = topic.split("/")
         if len(parts) < 3:
@@ -16,6 +16,20 @@ async def handle_mqtt_message(topic: str, payload: dict[str, Any]) -> None:
 
         category = parts[1]
         now = datetime.now(UTC).isoformat()
+
+        if category == "helmet" and "voice" in parts:
+            worker_id = parts[2]
+            action = parts[-1]
+            from app.services.voice_service import voice_service
+            if action == "stream":
+                await voice_service.handle_stream(worker_id, payload)
+            elif action == "status":
+                status = payload.decode('utf-8')
+                await voice_service.handle_status(worker_id, status)
+            return
+
+        if not isinstance(payload, dict):
+            return
 
         if category == "helmet":
             worker_id = parts[2]
@@ -47,6 +61,11 @@ async def handle_mqtt_message(topic: str, payload: dict[str, Any]) -> None:
                     "calculation_source": "HARDWARE_MQTT",
                 })
 
+                from app.services.db_service import db_service
+                await db_service.persist_sensor_reading(
+                    worker_id, payload, worker.get("movement", "BERGERAK")
+                )
+
                 closest_hazard = payload.get("closest_hazard")
                 if closest_hazard:
                     hz_id = closest_hazard.get("hazard_id")
@@ -55,8 +74,15 @@ async def handle_mqtt_message(topic: str, payload: dict[str, Any]) -> None:
                     rssi = closest_hazard.get("rssi", -100)
                     proximity = closest_hazard.get("proximity_level", "SAFE")
 
-                    hz = next((h for h in simulation_engine.state["hazards"] if h["id"] == hz_id), None)
+                    hz = next(
+                        (h for h in simulation_engine.state["hazards"]
+                         if h["id"] == hz_id or h.get("alias") == hz_id or h.get("beacon_name") == hz_id),
+                        None
+                    )
                     hz_name = hz["name"] if hz else f"Hazard {hz_id}"
+                    hz_category = closest_hazard.get("hazard_category") or (
+                        hz.get("category") if hz else ("MOBILE" if hz_type in ("FORKLIFT", "CONTAINER_CRANE", "AGV", "TRUCK") or str(hz_id).startswith(("M-", "F", "C", "V")) else "STATIONARY")
+                    )
 
                     risk_level = proximity.upper()
                     if risk_level == "CRITICAL":
@@ -73,6 +99,7 @@ async def handle_mqtt_message(topic: str, payload: dict[str, Any]) -> None:
                             "closest_hazard": hz_id,
                             "hazard_name": hz_name,
                             "hazard_type": hz_type,
+                            "hazard_category": hz_category,
                             "hazard_status": hz_status,
                             "rssi": rssi,
                             "smoothed_rssi": rssi,
@@ -83,23 +110,36 @@ async def handle_mqtt_message(topic: str, payload: dict[str, Any]) -> None:
                             "recommended_action": "Kondisi operasional normal. Tetap patuhi protokol K3 dan gunakan APD standar selama berada di area kerja.",
                         })
                     else:
+                        rec_action = (
+                            "Tinggalkan lintasan alat berat. Jaga jarak aman minimal 10-15 meter dari forklift/kontainer bergerak."
+                            if hz_category == "MOBILE"
+                            else "Patuhi batas garis aman mesin. Gunakan APD lengkap dan hindari titik jepit (pinch-point) mesin."
+                        )
                         worker.update({
                             "closest_hazard": hz_id,
                             "hazard_name": hz_name,
                             "hazard_type": hz_type,
+                            "hazard_category": hz_category,
                             "hazard_status": hz_status,
                             "rssi": rssi,
                             "smoothed_rssi": rssi,
                             "proximity": proximity,
                             "risk_level": risk_level,
                             "risk_score": risk_score,
-                            "dominant_factor": "Paparan bahaya (Hardware)",
-                            "recommended_action": "Tinggalkan area bahaya segera. Pastikan jarak aman minimal 15 meter dari alat berat yang beroperasi.",
+                            "dominant_factor": f"Paparan bahaya {hz_category.capitalize()} (Hardware)",
+                            "recommended_action": rec_action,
                         })
 
-                    if risk_level == "CRITICAL" and not simulation_engine._near_miss_created:
+                    import time
+                    cooldown_key = (worker_id, hz_id)
+                    last_time = getattr(simulation_engine, "_near_miss_cooldowns", {}).get(cooldown_key, 0)
+                    now_ts = time.time()
+                    if risk_level == "CRITICAL" and (now_ts - last_time > 20 or not simulation_engine._near_miss_created):
+                        if not hasattr(simulation_engine, "_near_miss_cooldowns"):
+                            simulation_engine._near_miss_cooldowns = {}
+                        simulation_engine._near_miss_cooldowns[cooldown_key] = now_ts
                         event = {
-                            "id": f"NM-{datetime.now(UTC).strftime('%H%M%S')}",
+                            "id": f"NM-{datetime.now(UTC).strftime('%H%M%S')}-{worker_id}",
                             "timestamp": now,
                             "worker_id": worker_id,
                             "worker_name": worker["name"],
@@ -118,7 +158,19 @@ async def handle_mqtt_message(topic: str, payload: dict[str, Any]) -> None:
                         }
                         simulation_engine.state["near_misses"].insert(0, event)
                         simulation_engine._near_miss_created = True
+                        simulation_engine.state.setdefault("activities", []).insert(0, {
+                            "id": f"act-nm-{event['id']}",
+                            "type": "NEAR_MISS",
+                            "message": f"{worker['name']} ({worker_id}) mendekati {hz_name} · RSSI {rssi} dBm",
+                            "timestamp": now,
+                        })
+                        try:
+                            from app.api.v1.router import sync_today_history
+                            sync_today_history()
+                        except Exception:
+                            pass
                         await websocket_manager.broadcast("near_miss.created", event)
+                        await db_service.persist_near_miss(event)
                 else:
                     worker.update({
                         "closest_hazard": None,
@@ -176,8 +228,8 @@ async def handle_mqtt_message(topic: str, payload: dict[str, Any]) -> None:
 
                 await websocket_manager.broadcast("worker.updated", worker)
 
-                dev_id = f"HELMET-{worker_id}"
-                device = next((d for d in simulation_engine.state["devices"] if d["id"] == dev_id), None)
+                dev_ids = (f"DEV-HLM-{worker_id}", f"HELMET-{worker_id}", worker_id)
+                device = next((d for d in simulation_engine.state["devices"] if d["id"] in dev_ids or worker_id in d["id"]), None)
                 if device:
                     device.update({
                         "online": True,
@@ -189,15 +241,18 @@ async def handle_mqtt_message(topic: str, payload: dict[str, Any]) -> None:
 
         elif category == "hazard":
             hazard_id = parts[2]
-            hazard = next((h for h in simulation_engine.state["hazards"] if h["id"] == hazard_id), None)
+            hazard = next(
+                (h for h in simulation_engine.state["hazards"]
+                 if h["id"] == hazard_id or h.get("alias") == hazard_id or h.get("beacon_name") == hazard_id),
+                None
+            )
             if hazard:
                 hazard.update({
                     "online": True,
                     "status": payload.get("operating_status", hazard.get("status", "ACTIVE")),
                     "last_update": now,
                 })
-                dev_id = f"HAZARD-{hazard_id}"
-                device = next((d for d in simulation_engine.state["devices"] if d["id"] == dev_id), None)
+                device = next((d for d in simulation_engine.state["devices"] if d["id"] in (f"DEV-BCN-{hazard['id']}", f"HAZARD-{hazard['id']}", f"DEV-BCN-{hazard_id}", f"HAZARD-{hazard_id}")), None)
                 if device:
                     device.update({
                         "online": True,
@@ -208,8 +263,8 @@ async def handle_mqtt_message(topic: str, payload: dict[str, Any]) -> None:
 
         elif category == "environment":
             env_id = parts[2]
-            dev_id = f"ENV-{env_id}"
-            device = next((d for d in simulation_engine.state["devices"] if d["id"] == dev_id), None)
+            dev_ids = (f"DEV-ENV-{env_id}", f"ENV-{env_id}", env_id)
+            device = next((d for d in simulation_engine.state["devices"] if d["id"] in dev_ids or env_id in d["id"]), None)
             if device:
                 device.update({
                     "online": True,

@@ -27,12 +27,18 @@ class Settings(BaseSettings):
     ai_timeout_seconds: float = 2.0
     ai_window_seconds: float = 10.0
     ai_min_samples: int = 2
-    # Accept a practical comma-separated environment variable. NoDecode keeps
-    # pydantic-settings from attempting JSON parsing before our validator runs.
     cors_origins: Annotated[list[str], NoDecode] = ["http://localhost:5173"]
     device_offline_timeout: int = 30
+    wit_ai_token: str | None = None
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def normalize_database_url(cls, value: object) -> object:
+        if isinstance(value, str) and value.startswith("postgresql://"):
+            return value.replace("postgresql://", "postgresql+psycopg://", 1)
+        return value
 
     @field_validator("cors_origins", mode="before")
     @classmethod

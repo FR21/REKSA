@@ -1,38 +1,41 @@
 #include <Arduino.h>
 #include <NimBLEDevice.h>
+#include <driver/i2s_std.h>
 
+#include <ArduinoJson.h>
 #include <DHT.h>
+#include <PubSubClient.h>
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
-#include <PubSubClient.h>
-#include <ArduinoJson.h>
-#include <time.h>
 #include <Wire.h>
 #include <limits.h>
+#include <time.h>
 
 #if __has_include("secrets.h")
 #include "secrets.h"
 #else
-#error "Salin secrets.example.h menjadi secrets.h dan isi kredensial WiFi/HiveMQ."
+#error                                                                         \
+    "Salin secrets.example.h menjadi secrets.h dan isi kredensial WiFi/HiveMQ."
 #endif
 
 // IDENTITAS PERANGKAT
 
-const char* HELMET_NAME = "REKSA_HELMET_W01";
-const char* WORKER_ID = "W01"; // ID Pekerja untuk Topic MQTT
-const char* HAZARD_PREFIX = "REKSA_HAZARD_";
+const char *HELMET_NAME = "REKSA_HELMET_W01";
+const char *WORKER_ID = "W01"; // ID Pekerja untuk Topic MQTT
+const char *BEACON_PREFIX = "RK_";
+const char *HAZARD_PREFIX = "REKSA_HAZARD_"; // Legacy fallback prefix
 
 // KONFIGURASI WIFI & MQTT
 
-const char* WIFI_SSID = REKSA_WIFI_SSID;
-const char* WIFI_PASSWORD = REKSA_WIFI_PASSWORD;
-const char* MQTT_SERVER = REKSA_MQTT_HOST;
+const char *WIFI_SSID = REKSA_WIFI_SSID;
+const char *WIFI_PASSWORD = REKSA_WIFI_PASSWORD;
+const char *MQTT_SERVER = REKSA_MQTT_HOST;
 const int MQTT_PORT = REKSA_MQTT_PORT;
-const char* MQTT_USERNAME = REKSA_MQTT_USERNAME;
-const char* MQTT_PASSWORD = REKSA_MQTT_PASSWORD;
-const char* NTP_SERVER = "pool.ntp.org";
-const char* NTP_FALLBACK_1 = "time.google.com";
-const char* NTP_FALLBACK_2 = "time.cloudflare.com";
+const char *MQTT_USERNAME = REKSA_MQTT_USERNAME;
+const char *MQTT_PASSWORD = REKSA_MQTT_PASSWORD;
+const char *NTP_SERVER = "pool.ntp.org";
+const char *NTP_FALLBACK_1 = "time.google.com";
+const char *NTP_FALLBACK_2 = "time.cloudflare.com";
 constexpr long GMT_OFFSET_SECONDS = 0;
 constexpr int DAYLIGHT_OFFSET_SECONDS = 0;
 constexpr time_t MIN_VALID_TLS_EPOCH = 1700000000; // 2023-11-14 UTC
@@ -74,17 +77,32 @@ constexpr uint8_t I2C_SDA_PIN = 21;
 constexpr uint8_t I2C_SCL_PIN = 22;
 constexpr uint8_t MQ135_ADC_PIN = 34;
 
-/*
- * Atur menjadi true apabila modul aktif saat pin LOW.
- * Jika modul langsung menyala saat boot, coba ubah nilai modul terkait.
- */
+constexpr uint8_t BUTTON_PIN = 25;
+constexpr uint8_t PTT_PIN = 26;
+
+// I2S INMP441 Pins
+constexpr uint8_t I2S_WS = 32;
+constexpr uint8_t I2S_SCK = 33;
+constexpr uint8_t I2S_SD = 35;
+i2s_chan_handle_t i2s_rx_handle = NULL;
+
+bool isRecording = false;
+constexpr uint8_t LED_PIN =
+    2; // Pakai pin 2 agar lampu biru bawaan ESP32 ikut menyala
+constexpr uint8_t LED_PTT_PIN =
+    4; // Pin GPIO 4 untuk lampu indikator Speech-to-Text / PTT (Merekam suara)
+bool isSystemActive = true;
+
+volatile bool buttonFlag = false;
+volatile unsigned long lastDebounceTime = 0;
+volatile bool pttFlag = false;
+volatile unsigned long lastPttDebounceTime = 0;
+
+// Active-low flag untuk modul buzzer/vibrasi.
 constexpr bool BUZZER_ACTIVE_LOW = true;
 constexpr bool VIBRATION_ACTIVE_LOW = false;
 
-/*
- * Set true hanya untuk menguji buzzer dan vibration saat ESP32 menyala.
- * Setelah modul terbukti bekerja, ubah kembali menjadi false.
- */
+// Set true untuk menguji modul buzzer dan vibrasi saat boot.
 constexpr bool RUN_OUTPUT_SELF_TEST = false;
 
 // KONFIGURASI DHT22
@@ -107,7 +125,7 @@ constexpr uint8_t MPU6050_ACCEL_XOUT_H = 0x3B;
 
 constexpr float STANDARD_GRAVITY = 9.80665;
 constexpr float MPU6050_ACCEL_SCALE = 4096.0; // +-8g
-constexpr float MPU6050_GYRO_SCALE = 65.5; // +-500 deg/s
+constexpr float MPU6050_GYRO_SCALE = 65.5;    // +-500 deg/s
 constexpr float IMPACT_THRESHOLD_G = 3.5;
 constexpr float FALL_FREEFALL_THRESHOLD_G = 0.45;
 constexpr float FALL_TILT_THRESHOLD_DEG = 60.0;
@@ -134,24 +152,12 @@ struct MotionData {
 };
 
 MotionData latestMotion = {
-  false,
-  0.0,
-  0.0,
-  STANDARD_GRAVITY,
-  0.0,
-  0.0,
-  0.0,
-  0.0,
-  0.0,
-  0.0,
-  1.0,
-  false,
-  false
-};
+    false, 0.0,   0.0,  STANDARD_GRAVITY, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+    1.0,   false, false};
 
 bool mpu6050Ready = false;
 int latestMq135Raw = 0;
-const char* latestAirQualityLevel = "UNKNOWN";
+const char *latestAirQualityLevel = "UNKNOWN";
 bool latestGasAlert = false;
 unsigned long lastSensorReadAt = 0;
 
@@ -161,18 +167,23 @@ constexpr uint8_t MAX_HAZARDS = 10;
 constexpr uint8_t BLE_SCAN_SECONDS = 1;
 constexpr unsigned long HAZARD_TIMEOUT_MS = 6000;
 
-// Threshold awal dari rancangan REKSA.
-// Kalibrasikan kembali berdasarkan hasil pengujian jarak.
-constexpr int RSSI_CRITICAL_THRESHOLD = -75;
-constexpr int RSSI_HIGH_THRESHOLD = -85;
-constexpr int RSSI_MODERATE_THRESHOLD = -95;
+// THRESHOLD DUAL-PROFILE K3 (CALIBRATED REAL-WORLD)
+// 1. Mobile Hazard (Forklift F01-F99, Container / Crane C01-C99, AGV)
+constexpr int MOBILE_RSSI_CRITICAL = -70; // ~3.5m (waktu reaksi pengereman)
+constexpr int MOBILE_RSSI_HIGH     = -78; // ~6.0m (peringatan mendekat)
+constexpr int MOBILE_RSSI_MODERATE = -86; // ~10.0m (zona waspada visual)
+
+// 2. Static / Stationary Hazard (Laser L01-L99, Gerinda G01-G99, Mesin M01-M99)
+constexpr int STATIC_RSSI_CRITICAL = -65; // ~1.2m (zona bahaya pinch-point)
+constexpr int STATIC_RSSI_HIGH     = -74; // ~2.5m (batas area kerja APD wajib)
+constexpr int STATIC_RSSI_MODERATE = -82; // ~4.0m (masuk perimeter stasiun)
 
 // RSSI smoothing dan stabilisasi perubahan zona.
 constexpr uint8_t RSSI_WINDOW_SIZE = 5;
 constexpr uint8_t REQUIRED_CONSECUTIVE_READINGS = 2;
 constexpr int RSSI_HYSTERESIS_DB = 3;
 
-NimBLEScan* bleScan = nullptr;
+NimBLEScan *bleScan = nullptr;
 
 // KONFIGURASI POLA WARNING
 
@@ -198,6 +209,7 @@ enum class ProximityZone : uint8_t {
 
 struct HazardData {
   bool used;
+  bool isMobile;
 
   String name;
   String macAddress;
@@ -217,14 +229,36 @@ struct HazardData {
   unsigned long lastSeen;
 };
 
+inline bool isMobileHazardFast(const char *name, size_t len) {
+  // Format Standar Reksa: "RK_M_..." (Mobile) vs "RK_S_..." (Stationary)
+  // Dilakukan dalam 1 siklus CPU Xtensa LX6 (~4.16 nanodetik) tanpa alokasi heap
+  if (len >= 4 && name[0] == 'R' && name[1] == 'K' && name[2] == '_') {
+    return name[3] == 'M';
+  }
+  // Format Legacy: "REKSA_HAZARD_F01", "REKSA_HAZARD_C01", dsb.
+  if (len >= 14 && strncmp(name, HAZARD_PREFIX, 13) == 0) {
+    char c = name[13];
+    return (c == 'F' || c == 'C' || c == 'V');
+  }
+  // Fallback single prefix: F, C, V
+  if (len > 0) {
+    char c = name[0];
+    return (c == 'F' || c == 'C' || c == 'V');
+  }
+  return true;
+}
+
+bool isMobileHazard(const String &name) {
+  return isMobileHazardFast(name.c_str(), name.length());
+}
+
 HazardData hazards[MAX_HAZARDS];
 
 // KONTROL OUTPUT
 
 void setModuleOutput(uint8_t pin, bool active, bool activeLow) {
-  const uint8_t outputLevel = active
-    ? (activeLow ? LOW : HIGH)
-    : (activeLow ? HIGH : LOW);
+  const uint8_t outputLevel =
+      active ? (activeLow ? LOW : HIGH) : (activeLow ? HIGH : LOW);
 
   digitalWrite(pin, outputLevel);
 }
@@ -234,11 +268,7 @@ void setBuzzer(bool active) {
 }
 
 void setVibration(bool active) {
-  setModuleOutput(
-    VIBRATION_PIN,
-    active,
-    VIBRATION_ACTIVE_LOW
-  );
+  setModuleOutput(VIBRATION_PIN, active, VIBRATION_ACTIVE_LOW);
 }
 
 void stopAllWarnings() {
@@ -273,22 +303,22 @@ void testWarningModules() {
 
 // UTILITAS ZONA
 
-const char* zoneToString(ProximityZone zone) {
+const char *zoneToString(ProximityZone zone) {
   switch (zone) {
-    case ProximityZone::ZONE_SAFE:
-      return "SAFE";
+  case ProximityZone::ZONE_SAFE:
+    return "SAFE";
 
-    case ProximityZone::ZONE_MODERATE:
-      return "MODERATE";
+  case ProximityZone::ZONE_MODERATE:
+    return "MODERATE";
 
-    case ProximityZone::ZONE_HIGH:
-      return "HIGH";
+  case ProximityZone::ZONE_HIGH:
+    return "HIGH";
 
-    case ProximityZone::ZONE_CRITICAL:
-      return "CRITICAL";
+  case ProximityZone::ZONE_CRITICAL:
+    return "CRITICAL";
 
-    default:
-      return "UNKNOWN";
+  default:
+    return "UNKNOWN";
   }
 }
 
@@ -296,93 +326,72 @@ uint8_t getZonePriority(ProximityZone zone) {
   return static_cast<uint8_t>(zone);
 }
 
-ProximityZone determineRawZone(int rssi) {
-  if (rssi >= RSSI_CRITICAL_THRESHOLD) {
+ProximityZone determineRawZone(int rssi, bool isMobile = true) {
+  const int critThresh = isMobile ? MOBILE_RSSI_CRITICAL : STATIC_RSSI_CRITICAL;
+  const int highThresh = isMobile ? MOBILE_RSSI_HIGH     : STATIC_RSSI_HIGH;
+  const int modThresh  = isMobile ? MOBILE_RSSI_MODERATE : STATIC_RSSI_MODERATE;
+
+  if (rssi >= critThresh) {
     return ProximityZone::ZONE_CRITICAL;
   }
-
-  if (rssi >= RSSI_HIGH_THRESHOLD) {
+  if (rssi >= highThresh) {
     return ProximityZone::ZONE_HIGH;
   }
-
-  if (rssi >= RSSI_MODERATE_THRESHOLD) {
+  if (rssi >= modThresh) {
     return ProximityZone::ZONE_MODERATE;
   }
-
   return ProximityZone::ZONE_SAFE;
 }
 
-/*
- * Hysteresis mencegah zona berubah cepat ketika RSSI berada dekat batas.
- *
- * Dengan hysteresis 3 dBm:
- * - CRITICAL baru turun jika RSSI lebih kecil dari -68 dBm.
- * - HIGH baru turun jika RSSI lebih kecil dari -78 dBm.
- * - MODERATE baru turun jika RSSI lebih kecil dari -88 dBm.
- */
+// Hysteresis 3 dBm mencegah perpindahan zona berulang di sekitar batas threshold.
+ProximityZone determineZoneWithHysteresis(int rssi, ProximityZone currentZone, bool isMobile = true) {
+  const int critThresh = isMobile ? MOBILE_RSSI_CRITICAL : STATIC_RSSI_CRITICAL;
+  const int highThresh = isMobile ? MOBILE_RSSI_HIGH     : STATIC_RSSI_HIGH;
+  const int modThresh  = isMobile ? MOBILE_RSSI_MODERATE : STATIC_RSSI_MODERATE;
 
-ProximityZone determineZoneWithHysteresis(
-  int rssi,
-  ProximityZone currentZone
-) {
   if (currentZone == ProximityZone::ZONE_UNKNOWN) {
-    return determineRawZone(rssi);
+    return determineRawZone(rssi, isMobile);
   }
 
   switch (currentZone) {
-    case ProximityZone::ZONE_SAFE:
-      return determineRawZone(rssi);
+  case ProximityZone::ZONE_SAFE:
+    return determineRawZone(rssi, isMobile);
 
-    case ProximityZone::ZONE_MODERATE:
-      if (
-        rssi <
-        RSSI_MODERATE_THRESHOLD - RSSI_HYSTERESIS_DB
-      ) {
-        return ProximityZone::ZONE_SAFE;
-      }
-
-      if (rssi >= RSSI_CRITICAL_THRESHOLD) {
-        return ProximityZone::ZONE_CRITICAL;
-      }
-
-      if (rssi >= RSSI_HIGH_THRESHOLD) {
-        return ProximityZone::ZONE_HIGH;
-      }
-
-      return ProximityZone::ZONE_MODERATE;
-
-    case ProximityZone::ZONE_HIGH:
-      if (rssi >= RSSI_CRITICAL_THRESHOLD) {
-        return ProximityZone::ZONE_CRITICAL;
-      }
-
-      if (
-        rssi <
-        RSSI_HIGH_THRESHOLD - RSSI_HYSTERESIS_DB
-      ) {
-        return determineRawZone(rssi);
-      }
-
-      return ProximityZone::ZONE_HIGH;
-
-    case ProximityZone::ZONE_CRITICAL:
-      if (
-        rssi <
-        RSSI_CRITICAL_THRESHOLD - RSSI_HYSTERESIS_DB
-      ) {
-        return determineRawZone(rssi);
-      }
-
+  case ProximityZone::ZONE_MODERATE:
+    if (rssi < modThresh - RSSI_HYSTERESIS_DB) {
+      return ProximityZone::ZONE_SAFE;
+    }
+    if (rssi >= critThresh) {
       return ProximityZone::ZONE_CRITICAL;
+    }
+    if (rssi >= highThresh) {
+      return ProximityZone::ZONE_HIGH;
+    }
+    return ProximityZone::ZONE_MODERATE;
 
-    default:
-      return determineRawZone(rssi);
+  case ProximityZone::ZONE_HIGH:
+    if (rssi >= critThresh) {
+      return ProximityZone::ZONE_CRITICAL;
+    }
+    if (rssi < highThresh - RSSI_HYSTERESIS_DB) {
+      return determineRawZone(rssi, isMobile);
+    }
+    return ProximityZone::ZONE_HIGH;
+
+  case ProximityZone::ZONE_CRITICAL:
+    if (rssi < critThresh - RSSI_HYSTERESIS_DB) {
+      return determineRawZone(rssi, isMobile);
+    }
+    return ProximityZone::ZONE_CRITICAL;
+
+  default:
+    return determineRawZone(rssi, isMobile);
   }
 }
 
 // PENGELOLAAN DATA HAZARD
 
-void resetHazard(HazardData& hazard) {
+void resetHazard(HazardData &hazard) {
   hazard.used = false;
 
   hazard.name = "";
@@ -406,12 +415,9 @@ void resetHazard(HazardData& hazard) {
   hazard.lastSeen = 0;
 }
 
-int findHazardIndex(const String& macAddress) {
+int findHazardIndex(const String &macAddress) {
   for (uint8_t i = 0; i < MAX_HAZARDS; i++) {
-    if (
-      hazards[i].used &&
-      hazards[i].macAddress == macAddress
-    ) {
+    if (hazards[i].used && hazards[i].macAddress == macAddress) {
       return i;
     }
   }
@@ -429,7 +435,7 @@ int findEmptySlot() {
   return -1;
 }
 
-void addRssiReading(HazardData& hazard, int rssi) {
+void addRssiReading(HazardData &hazard, int rssi) {
   hazard.rawRssi = rssi;
 
   const uint8_t slot = hazard.rssiIndex;
@@ -444,30 +450,20 @@ void addRssiReading(HazardData& hazard, int rssi) {
     hazard.rssiSum += rssi;
   }
 
-  hazard.rssiIndex =
-    (hazard.rssiIndex + 1) % RSSI_WINDOW_SIZE;
+  hazard.rssiIndex = (hazard.rssiIndex + 1) % RSSI_WINDOW_SIZE;
 
-  hazard.smoothedRssi = static_cast<int>(
-    round(
-      static_cast<float>(hazard.rssiSum) /
-      static_cast<float>(hazard.rssiCount)
-    )
-  );
+  hazard.smoothedRssi =
+      static_cast<int>(round(static_cast<float>(hazard.rssiSum) /
+                             static_cast<float>(hazard.rssiCount)));
 }
 
-void updateStableZone(HazardData& hazard) {
-  if (
-    hazard.rssiCount <
-    REQUIRED_CONSECUTIVE_READINGS
-  ) {
+void updateStableZone(HazardData &hazard) {
+  if (hazard.rssiCount < REQUIRED_CONSECUTIVE_READINGS) {
     return;
   }
 
   const ProximityZone nextZone =
-    determineZoneWithHysteresis(
-      hazard.smoothedRssi,
-      hazard.zone
-    );
+      determineZoneWithHysteresis(hazard.smoothedRssi, hazard.zone, hazard.isMobile);
 
   if (nextZone == hazard.zone) {
     hazard.candidateZone = hazard.zone;
@@ -482,10 +478,7 @@ void updateStableZone(HazardData& hazard) {
     hazard.candidateCount = 1;
   }
 
-  if (
-    hazard.candidateCount >=
-    REQUIRED_CONSECUTIVE_READINGS
-  ) {
+  if (hazard.candidateCount >= REQUIRED_CONSECUTIVE_READINGS) {
     const ProximityZone previousZone = hazard.zone;
 
     hazard.zone = hazard.candidateZone;
@@ -508,20 +501,14 @@ void updateStableZone(HazardData& hazard) {
   }
 }
 
-void updateHazard(
-  const String& name,
-  const String& macAddress,
-  int rssi
-) {
+void updateHazard(const String &name, const String &macAddress, int rssi) {
   int index = findHazardIndex(macAddress);
 
   if (index == -1) {
     index = findEmptySlot();
 
     if (index == -1) {
-      Serial.println(
-        "Penyimpanan hazard penuh."
-      );
+      Serial.println("Penyimpanan hazard penuh.");
       return;
     }
 
@@ -530,6 +517,7 @@ void updateHazard(
     hazards[index].used = true;
     hazards[index].name = name;
     hazards[index].macAddress = macAddress;
+    hazards[index].isMobile = isMobileHazard(name);
     hazards[index].zone = ProximityZone::ZONE_SAFE;
     hazards[index].candidateZone = ProximityZone::ZONE_SAFE;
 
@@ -551,10 +539,7 @@ void removeInactiveHazards() {
       continue;
     }
 
-    if (
-      currentTime - hazards[i].lastSeen >
-      HAZARD_TIMEOUT_MS
-    ) {
+    if (currentTime - hazards[i].lastSeen > HAZARD_TIMEOUT_MS) {
       Serial.print("Hazard tidak aktif: ");
       Serial.println(hazards[i].name);
 
@@ -566,28 +551,33 @@ void removeInactiveHazards() {
 // CALLBACK BLE
 
 class ScanCallbacks : public NimBLEScanCallbacks {
-  void onResult(
-    const NimBLEAdvertisedDevice* advertisedDevice
-  ) override {
+  void onResult(const NimBLEAdvertisedDevice *advertisedDevice) override {
     if (!advertisedDevice->haveName()) {
       return;
     }
 
-    const String deviceName =
-      advertisedDevice->getName().c_str();
+    const std::string devName = advertisedDevice->getName();
+    const char *name = devName.c_str();
+    const size_t len = devName.length();
 
-    if (!deviceName.startsWith(HAZARD_PREFIX)) {
+    // Fast zero-overhead inspection (<16 ns pada 240MHz):
+    // 1. Standar Reksa: "RK_M_..." / "RK_S_..." (11 byte)
+    // 2. Legacy: "REKSA_HAZARD_..."
+    bool isMatch = false;
+    if (len >= 6 && name[0] == 'R' && name[1] == 'K' && name[2] == '_') {
+      isMatch = true;
+    } else if (len >= 13 && strncmp(name, HAZARD_PREFIX, 13) == 0) {
+      isMatch = true;
+    }
+
+    if (!isMatch) {
       return;
     }
 
-    const String macAddress =
-      advertisedDevice->getAddress().toString().c_str();
+    const String deviceName = name;
+    const String macAddress = advertisedDevice->getAddress().toString().c_str();
 
-    updateHazard(
-      deviceName,
-      macAddress,
-      advertisedDevice->getRSSI()
-    );
+    updateHazard(deviceName, macAddress, advertisedDevice->getRSSI());
   }
 };
 
@@ -596,11 +586,8 @@ class ScanCallbacks : public NimBLEScanCallbacks {
 void updateDHT22() {
   const unsigned long currentTime = millis();
 
-  if (
-    lastDhtReadAt != 0 &&
-    currentTime - lastDhtReadAt <
-    DHT_READ_INTERVAL_MS
-  ) {
+  if (lastDhtReadAt != 0 &&
+      currentTime - lastDhtReadAt < DHT_READ_INTERVAL_MS) {
     return;
   }
 
@@ -628,14 +615,8 @@ bool writeMPU6050Register(uint8_t reg, uint8_t value) {
   return Wire.endTransmission() == 0;
 }
 
-bool readMPU6050Raw(
-  int16_t& ax,
-  int16_t& ay,
-  int16_t& az,
-  int16_t& gx,
-  int16_t& gy,
-  int16_t& gz
-) {
+bool readMPU6050Raw(int16_t &ax, int16_t &ay, int16_t &az, int16_t &gx,
+                    int16_t &gy, int16_t &gz) {
   Wire.beginTransmission(MPU6050_ADDRESS);
   Wire.write(MPU6050_ACCEL_XOUT_H);
 
@@ -666,16 +647,15 @@ void setupMPU6050() {
   Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
   Wire.setClock(400000);
 
-  mpu6050Ready =
-    writeMPU6050Register(MPU6050_PWR_MGMT_1, 0x00) &&
-    writeMPU6050Register(MPU6050_ACCEL_CONFIG, 0x10) &&
-    writeMPU6050Register(MPU6050_GYRO_CONFIG, 0x08);
+  mpu6050Ready = writeMPU6050Register(MPU6050_PWR_MGMT_1, 0x00) &&
+                 writeMPU6050Register(MPU6050_ACCEL_CONFIG, 0x10) &&
+                 writeMPU6050Register(MPU6050_GYRO_CONFIG, 0x08);
 
   Serial.print("MPU6050 status: ");
   Serial.println(mpu6050Ready ? "TERDETEKSI" : "TIDAK TERDETEKSI");
 }
 
-const char* classifyAirQuality(int rawValue) {
+const char *classifyAirQuality(int rawValue) {
   if (rawValue >= MQ135_DANGEROUS_THRESHOLD) {
     return "DANGEROUS";
   }
@@ -694,11 +674,8 @@ const char* classifyAirQuality(int rawValue) {
 void updateMotionAndAirQuality() {
   const unsigned long currentTime = millis();
 
-  if (
-    lastSensorReadAt != 0 &&
-    currentTime - lastSensorReadAt <
-    SENSOR_READ_INTERVAL_MS
-  ) {
+  if (lastSensorReadAt != 0 &&
+      currentTime - lastSensorReadAt < SENSOR_READ_INTERVAL_MS) {
     return;
   }
 
@@ -706,9 +683,8 @@ void updateMotionAndAirQuality() {
 
   latestMq135Raw = analogRead(MQ135_ADC_PIN);
   latestAirQualityLevel = classifyAirQuality(latestMq135Raw);
-  latestGasAlert =
-    strcmp(latestAirQualityLevel, "POOR") == 0 ||
-    strcmp(latestAirQualityLevel, "DANGEROUS") == 0;
+  latestGasAlert = strcmp(latestAirQualityLevel, "POOR") == 0 ||
+                   strcmp(latestAirQualityLevel, "DANGEROUS") == 0;
 
   if (!mpu6050Ready) {
     latestMotion.valid = false;
@@ -725,16 +701,7 @@ void updateMotionAndAirQuality() {
   int16_t rawGy = 0;
   int16_t rawGz = 0;
 
-  if (
-    !readMPU6050Raw(
-      rawAx,
-      rawAy,
-      rawAz,
-      rawGx,
-      rawGy,
-      rawGz
-    )
-  ) {
+  if (!readMPU6050Raw(rawAx, rawAy, rawAz, rawGx, rawGy, rawGz)) {
     latestMotion.valid = false;
     return;
   }
@@ -742,11 +709,8 @@ void updateMotionAndAirQuality() {
   const float accelXG = rawAx / MPU6050_ACCEL_SCALE;
   const float accelYG = rawAy / MPU6050_ACCEL_SCALE;
   const float accelZG = rawAz / MPU6050_ACCEL_SCALE;
-  const float totalG = sqrt(
-    accelXG * accelXG +
-    accelYG * accelYG +
-    accelZG * accelZG
-  );
+  const float totalG =
+      sqrt(accelXG * accelXG + accelYG * accelYG + accelZG * accelZG);
 
   latestMotion.valid = true;
   latestMotion.accelX = accelXG * STANDARD_GRAVITY;
@@ -755,10 +719,8 @@ void updateMotionAndAirQuality() {
   latestMotion.gyroX = rawGx / MPU6050_GYRO_SCALE;
   latestMotion.gyroY = rawGy / MPU6050_GYRO_SCALE;
   latestMotion.gyroZ = rawGz / MPU6050_GYRO_SCALE;
-  latestMotion.pitch = atan2(
-    -accelXG,
-    sqrt(accelYG * accelYG + accelZG * accelZG)
-  ) * 180.0 / PI;
+  latestMotion.pitch =
+      atan2(-accelXG, sqrt(accelYG * accelYG + accelZG * accelZG)) * 180.0 / PI;
   latestMotion.roll = atan2(accelYG, accelZG) * 180.0 / PI;
   latestMotion.yaw = 0.0;
   latestMotion.impactG = totalG;
@@ -778,16 +740,11 @@ int getMostDangerousHazardIndex() {
       continue;
     }
 
-    const uint8_t priority =
-      getZonePriority(hazards[i].zone);
+    const uint8_t priority = getZonePriority(hazards[i].zone);
 
-    if (
-      priority > highestPriority ||
-      (
-        priority == highestPriority &&
-        hazards[i].smoothedRssi > strongestRssi
-      )
-    ) {
+    if (priority > highestPriority ||
+        (priority == highestPriority &&
+         hazards[i].smoothedRssi > strongestRssi)) {
       selectedIndex = i;
       highestPriority = priority;
       strongestRssi = hazards[i].smoothedRssi;
@@ -798,21 +755,19 @@ int getMostDangerousHazardIndex() {
 }
 
 void updateWarningPriority() {
-  const int hazardIndex =
-    getMostDangerousHazardIndex();
+  const int hazardIndex = getMostDangerousHazardIndex();
 
   if (hazardIndex == -1) {
     currentWarningPriority = 0;
     return;
   }
 
-  currentWarningPriority =
-    getZonePriority(hazards[hazardIndex].zone);
+  currentWarningPriority = getZonePriority(hazards[hazardIndex].zone);
 }
 
 // TASK WARNING NON-BLOCKING
 
-void warningTask(void* parameter) {
+void warningTask(void *parameter) {
   uint8_t previousPriority = 255;
   bool vibrationPhaseOn = false;
   unsigned long lastPhaseChange = 0;
@@ -847,12 +802,9 @@ void warningTask(void* parameter) {
 
     if (priority == 3) {
       const unsigned long phaseDuration =
-        vibrationPhaseOn ? HIGH_ON_MS : HIGH_OFF_MS;
+          vibrationPhaseOn ? HIGH_ON_MS : HIGH_OFF_MS;
 
-      if (
-        currentTime - lastPhaseChange >=
-        phaseDuration
-      ) {
+      if (currentTime - lastPhaseChange >= phaseDuration) {
         vibrationPhaseOn = !vibrationPhaseOn;
         lastPhaseChange = currentTime;
 
@@ -874,14 +826,10 @@ void warningTask(void* parameter) {
 
 void printDHTData() {
   Serial.println();
-  Serial.println(
-    "========== KONDISI LINGKUNGAN =========="
-  );
+  Serial.println("========== KONDISI LINGKUNGAN ==========");
 
   if (!dhtValid) {
-    Serial.println(
-      "Status      : Data DHT22 belum tersedia"
-    );
+    Serial.println("Status      : Data DHT22 belum tersedia");
   } else {
     Serial.print("Suhu        : ");
     Serial.print(latestTemperature, 1);
@@ -900,9 +848,7 @@ void printDHTData() {
     }
   }
 
-  Serial.println(
-    "========================================"
-  );
+  Serial.println("========================================");
 }
 
 void printMotionData() {
@@ -956,9 +902,7 @@ void printAirQualityData() {
 
 void printHazardList() {
   Serial.println();
-  Serial.println(
-    "========== DAFTAR HAZARD =========="
-  );
+  Serial.println("========== DAFTAR HAZARD ==========");
 
   uint8_t activeHazardCount = 0;
 
@@ -990,13 +934,10 @@ void printHazardList() {
   }
 
   if (activeHazardCount == 0) {
-    Serial.println(
-      "Tidak ada hazard REKSA yang aktif."
-    );
+    Serial.println("Tidak ada hazard REKSA yang aktif.");
   }
 
-  const int priorityIndex =
-    getMostDangerousHazardIndex();
+  const int priorityIndex = getMostDangerousHazardIndex();
 
   if (priorityIndex != -1) {
     Serial.println();
@@ -1006,20 +947,14 @@ void printHazardList() {
     Serial.println(hazards[priorityIndex].name);
 
     Serial.print("RSSI : ");
-    Serial.print(
-      hazards[priorityIndex].smoothedRssi
-    );
+    Serial.print(hazards[priorityIndex].smoothedRssi);
     Serial.println(" dBm");
 
     Serial.print("Zona : ");
-    Serial.println(
-      zoneToString(hazards[priorityIndex].zone)
-    );
+    Serial.println(zoneToString(hazards[priorityIndex].zone));
   }
 
-  Serial.println(
-    "==================================="
-  );
+  Serial.println("===================================");
 }
 
 void printWarningStatus() {
@@ -1027,40 +962,38 @@ void printWarningStatus() {
   Serial.println("========== STATUS WARNING ==========");
 
   switch (currentWarningPriority) {
-    case 4:
-      Serial.println("Level      : CRITICAL");
-      Serial.println("Buzzer     : MENYALA TERUS");
-      Serial.println("Vibration  : MENYALA TERUS");
-      break;
+  case 4:
+    Serial.println("Level      : CRITICAL");
+    Serial.println("Buzzer     : MENYALA TERUS");
+    Serial.println("Vibration  : MENYALA TERUS");
+    break;
 
-    case 3:
-      Serial.println("Level      : HIGH");
-      Serial.println("Buzzer     : PULSE CEPAT");
-      Serial.println("Vibration  : PULSE CEPAT");
-      break;
+  case 3:
+    Serial.println("Level      : HIGH");
+    Serial.println("Buzzer     : PULSE CEPAT");
+    Serial.println("Vibration  : PULSE CEPAT");
+    break;
 
-    case 2:
-      Serial.println("Level      : MODERATE");
-      Serial.println("Buzzer     : MATI");
-      Serial.println("Vibration  : MATI");
-      break;
+  case 2:
+    Serial.println("Level      : MODERATE");
+    Serial.println("Buzzer     : MATI");
+    Serial.println("Vibration  : MATI");
+    break;
 
-    case 1:
-      Serial.println("Level      : SAFE");
-      Serial.println("Buzzer     : MATI");
-      Serial.println("Vibration  : MATI");
-      break;
+  case 1:
+    Serial.println("Level      : SAFE");
+    Serial.println("Buzzer     : MATI");
+    Serial.println("Vibration  : MATI");
+    break;
 
-    default:
-      Serial.println("Level      : TANPA HAZARD");
-      Serial.println("Buzzer     : MATI");
-      Serial.println("Vibration  : MATI");
-      break;
+  default:
+    Serial.println("Level      : TANPA HAZARD");
+    Serial.println("Buzzer     : MATI");
+    Serial.println("Vibration  : MATI");
+    break;
   }
 
-  Serial.println(
-    "===================================="
-  );
+  Serial.println("====================================");
 }
 
 // WIFI & MQTT PROCEDURES
@@ -1075,7 +1008,8 @@ bool waitForValidTlsClock(unsigned long timeoutMs) {
 
   Serial.print("Menunggu sinkronisasi waktu NTP");
   const unsigned long startedAt = millis();
-  while (time(nullptr) < MIN_VALID_TLS_EPOCH && millis() - startedAt < timeoutMs) {
+  while (time(nullptr) < MIN_VALID_TLS_EPOCH &&
+         millis() - startedAt < timeoutMs) {
     delay(500);
     Serial.print(".");
   }
@@ -1090,7 +1024,8 @@ bool waitForValidTlsClock(unsigned long timeoutMs) {
   char formattedTime[32];
   const time_t now = time(nullptr);
   gmtime_r(&now, &utcTime);
-  strftime(formattedTime, sizeof(formattedTime), "%Y-%m-%dT%H:%M:%SZ", &utcTime);
+  strftime(formattedTime, sizeof(formattedTime), "%Y-%m-%dT%H:%M:%SZ",
+           &utcTime);
   Serial.print("Waktu UTC tersinkron: ");
   Serial.println(formattedTime);
   return true;
@@ -1120,13 +1055,8 @@ void setupWiFi() {
     Serial.println(WiFi.localIP());
 
     if (!timeSyncStarted) {
-      configTime(
-        GMT_OFFSET_SECONDS,
-        DAYLIGHT_OFFSET_SECONDS,
-        NTP_SERVER,
-        NTP_FALLBACK_1,
-        NTP_FALLBACK_2
-      );
+      configTime(GMT_OFFSET_SECONDS, DAYLIGHT_OFFSET_SECONDS, NTP_SERVER,
+                 NTP_FALLBACK_1, NTP_FALLBACK_2);
       timeSyncStarted = true;
     }
     waitForValidTlsClock(NTP_SYNC_TIMEOUT_MS);
@@ -1136,27 +1066,25 @@ void setupWiFi() {
   }
 }
 
-void mqttCallback(char* topic, byte* payload, unsigned int length) {
-  Serial.print("Pesan MQTT diterima [");
-  Serial.print(topic);
-  Serial.println("]");
-
-  StaticJsonDocument<256> doc;
-  DeserializationError error = deserializeJson(doc, payload, length);
-
-  if (error) {
-    Serial.print("Gagal parsing JSON: ");
-    Serial.println(error.f_str());
-    return;
-  }
-
+void mqttCallback(char *topic, byte *payload, unsigned int length) {
+  // Cek apakah pesan adalah ACK telemetri dari server
   if (String(topic).endsWith("/telemetry/ack")) {
-    const char* acknowledgedId = doc["message_id"];
+    StaticJsonDocument<512> doc;
+    DeserializationError error = deserializeJson(doc, (const char *)payload, length);
+
+    if (error) {
+      Serial.print("[MQTT ACK] Gagal parsing JSON: ");
+      Serial.println(error.f_str());
+      return;
+    }
+
+    const char *acknowledgedId = doc["message_id"];
     if (acknowledgedId != nullptr) {
       for (uint8_t i = 0; i < TELEMETRY_QUEUE_CAPACITY; i++) {
-        if (telemetryQueue[i].used && strcmp(telemetryQueue[i].messageId, acknowledgedId) == 0) {
+        if (telemetryQueue[i].used &&
+            strcmp(telemetryQueue[i].messageId, acknowledgedId) == 0) {
           telemetryQueue[i].used = false;
-          Serial.print("Telemetry diterima backend/PubSub: ");
+          Serial.print("[ACK OK] Telemetri terverifikasi: ");
           Serial.println(acknowledgedId);
           break;
         }
@@ -1165,16 +1093,29 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     return;
   }
 
-  const char* level = doc["warning_level"];
+  // Jika pesan bukan ACK (misalnya instruksi bahaya / warning dari dispatcher)
+  Serial.print("\n[PERINGATAN MASUK] Topik: ");
+  Serial.println(topic);
+
+  StaticJsonDocument<1024> doc;
+  DeserializationError error = deserializeJson(doc, (const char *)payload, length);
+
+  if (error) {
+    Serial.print("Gagal parsing Warning JSON: ");
+    Serial.println(error.f_str());
+    return;
+  }
+
+  const char *level = doc["warning_level"];
   bool buzzer = doc["actions"]["buzzer"] | false;
   bool vibration = doc["actions"]["vibration"] | false;
 
-  Serial.print("Peringatan masuk: level=");
-  Serial.print(level);
-  Serial.print(", buzzer=");
-  Serial.print(buzzer);
-  Serial.print(", vibration=");
-  Serial.println(vibration);
+  Serial.print("Tingkat bahaya: ");
+  Serial.print(level ? level : "UNKNOWN");
+  Serial.print(" | Buzzer: ");
+  Serial.print(buzzer ? "ON" : "OFF");
+  Serial.print(" | Vibrasi: ");
+  Serial.println(vibration ? "ON" : "OFF");
 
   if (level != nullptr) {
     String lvl = String(level);
@@ -1215,7 +1156,7 @@ void reconnectMQTT() {
 
     if (mqttClient.connect(clientId.c_str(), MQTT_USERNAME, MQTT_PASSWORD)) {
       Serial.println("Terhubung!");
-      
+
       String topic = "REKSA/helmet/";
       topic += WORKER_ID;
       topic += "/warning";
@@ -1251,7 +1192,8 @@ void reconnectMQTT() {
   }
 }
 
-void enqueueTelemetry(const char* messageId, const char* topic, const char* payload) {
+void enqueueTelemetry(const char *messageId, const char *topic,
+                      const char *payload) {
   int slot = -1;
   unsigned long oldestAt = ULONG_MAX;
   int oldestSlot = 0;
@@ -1268,9 +1210,10 @@ void enqueueTelemetry(const char* messageId, const char* topic, const char* payl
   if (slot < 0) {
     slot = oldestSlot;
     telemetryDroppedCount++;
-    Serial.println("PERINGATAN: buffer telemetry penuh; record tertua diganti.");
+    Serial.println(
+        "PERINGATAN: buffer telemetry penuh; record tertua diganti.");
   }
-  PendingTelemetry& item = telemetryQueue[slot];
+  PendingTelemetry &item = telemetryQueue[slot];
   item.used = true;
   strlcpy(item.messageId, messageId, sizeof(item.messageId));
   strlcpy(item.topic, topic, sizeof(item.topic));
@@ -1286,8 +1229,19 @@ void flushTelemetryQueue() {
   }
   const unsigned long now = millis();
   for (uint8_t i = 0; i < TELEMETRY_QUEUE_CAPACITY; i++) {
-    PendingTelemetry& item = telemetryQueue[i];
-    if (!item.used || (item.lastAttemptAt != 0 && now - item.lastAttemptAt < TELEMETRY_RETRY_INTERVAL_MS)) {
+    PendingTelemetry &item = telemetryQueue[i];
+    if (!item.used) {
+      continue;
+    }
+    // Jika sudah coba 5 kali belum dapat ACK, buang agar antrean tidak tersumbat
+    if (item.attempts >= 5) {
+      item.used = false;
+      Serial.print("Telemetry kedaluwarsa dibuang (5 attempts): ");
+      Serial.println(item.messageId);
+      continue;
+    }
+    if (item.lastAttemptAt != 0 &&
+        now - item.lastAttemptAt < TELEMETRY_RETRY_INTERVAL_MS) {
       continue;
     }
     item.lastAttemptAt = now;
@@ -1304,42 +1258,34 @@ void flushTelemetryQueue() {
     break;
   }
 }
-void writeIsoTimestamp(char* buffer, size_t bufferSize) {
+void writeIsoTimestamp(char *buffer, size_t bufferSize) {
   time_t now = time(nullptr);
 
   if (now < 1700000000) {
-    snprintf(
-      buffer,
-      bufferSize,
-      "2026-08-06T%02lu:%02lu:%02luZ",
-      (millis() / 3600000UL) % 24,
-      (millis() / 60000UL) % 60,
-      (millis() / 1000UL) % 60
-    );
+    snprintf(buffer, bufferSize, "2026-08-06T%02lu:%02lu:%02luZ",
+             (millis() / 3600000UL) % 24, (millis() / 60000UL) % 60,
+             (millis() / 1000UL) % 60);
     return;
   }
 
   struct tm timeInfo;
   gmtime_r(&now, &timeInfo);
-  strftime(
-    buffer,
-    bufferSize,
-    "%Y-%m-%dT%H:%M:%SZ",
-    &timeInfo
-  );
+  strftime(buffer, bufferSize, "%Y-%m-%dT%H:%M:%SZ", &timeInfo);
 }
 
 void publishSensorData() {
   StaticJsonDocument<1024> doc;
-  
-  String msgId = "HELMET-" + String(WORKER_ID) + "-" + String((uint32_t)ESP.getEfuseMac(), HEX) + "-" + String(millis());
+
+  String msgId = "HELMET-" + String(WORKER_ID) + "-" +
+                 String((uint32_t)ESP.getEfuseMac(), HEX) + "-" +
+                 String(millis());
   char timestamp[25];
   writeIsoTimestamp(timestamp, sizeof(timestamp));
 
   doc["message_id"] = msgId;
   doc["device_id"] = "HELMET-" + String(WORKER_ID);
   doc["worker_id"] = WORKER_ID;
-  doc["timestamp"] = timestamp; 
+  doc["timestamp"] = timestamp;
 
   JsonObject accel = doc.createNestedObject("acceleration");
   accel["x"] = round(latestMotion.accelX * 100.0) / 100.0;
@@ -1360,10 +1306,8 @@ void publishSensorData() {
   doc["fall_detected"] = latestMotion.fallDetected;
   doc["impact_g"] = round(latestMotion.impactG * 100.0) / 100.0;
   if (dhtValid) {
-    doc["temperature"] =
-      round(latestTemperature * 10.0) / 10.0;
-    doc["humidity"] =
-      round(latestHumidity * 10.0) / 10.0;
+    doc["temperature"] = round(latestTemperature * 10.0) / 10.0;
+    doc["humidity"] = round(latestHumidity * 10.0) / 10.0;
   }
   doc["firmware_version"] = "0.2.0";
 
@@ -1376,11 +1320,43 @@ void publishSensorData() {
   if (hazardIndex != -1) {
     JsonObject hz = doc.createNestedObject("closest_hazard");
     String rawId = hazards[hazardIndex].name;
-    if (rawId.startsWith(HAZARD_PREFIX)) {
-      rawId = rawId.substring(strlen(HAZARD_PREFIX));
+    String cleanId = rawId;
+    String hazardType = "MACHINERY";
+
+    if (rawId.startsWith("RK_") && rawId.length() >= 10) {
+      // Standar Reksa: "RK_M_FLK01" -> id: "M-FLK-01"
+      char cat = rawId.charAt(3);
+      String typeCode = rawId.substring(5, 8);
+      String num = rawId.substring(8);
+      cleanId = String(cat) + "-" + typeCode + "-" + num;
+
+      if (typeCode == "FLK") hazardType = "FORKLIFT";
+      else if (typeCode == "CNT" || typeCode == "CRN") hazardType = "CONTAINER_CRANE";
+      else if (typeCode == "AGV") hazardType = "AGV";
+      else if (typeCode == "TRK") hazardType = "TRUCK";
+      else if (typeCode == "LSR") hazardType = "LASER";
+      else if (typeCode == "GRD") hazardType = "GRINDING";
+      else if (typeCode == "PRS") hazardType = "PRESS";
+      else if (typeCode == "CNC") hazardType = "CNC";
+      else hazardType = "MACHINERY";
+    } else if (rawId.startsWith(HAZARD_PREFIX)) {
+      cleanId = rawId.substring(strlen(HAZARD_PREFIX));
+      hazardType = cleanId.startsWith("F")   ? "FORKLIFT"
+                 : cleanId.startsWith("C") ? "CONTAINER_CRANE"
+                 : cleanId.startsWith("G") ? "GRINDING"
+                 : cleanId.startsWith("L") ? "LASER"
+                                           : "MACHINERY";
+    } else {
+      hazardType = cleanId.startsWith("F")   ? "FORKLIFT"
+                 : cleanId.startsWith("C") ? "CONTAINER_CRANE"
+                 : cleanId.startsWith("G") ? "GRINDING"
+                 : cleanId.startsWith("L") ? "LASER"
+                                           : "MACHINERY";
     }
-    hz["hazard_id"] = rawId;
-    hz["hazard_type"] = rawId.startsWith("F") ? "FORKLIFT" : rawId.startsWith("G") ? "GRINDING" : "LASER";
+
+    hz["hazard_id"] = cleanId;
+    hz["hazard_type"] = hazardType;
+    hz["hazard_category"] = hazards[hazardIndex].isMobile ? "MOBILE" : "STATIONARY";
     hz["operating_status"] = "ACTIVE";
     hz["rssi"] = hazards[hazardIndex].smoothedRssi;
     hz["proximity_level"] = zoneToString(hazards[hazardIndex].zone);
@@ -1405,29 +1381,92 @@ void publishSensorData() {
   flushTelemetryQueue();
 }
 
+// SETUP I2S
+
+void setupI2S() {
+  i2s_chan_config_t chan_cfg =
+      I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_1, I2S_ROLE_MASTER);
+  esp_err_t err = i2s_new_channel(&chan_cfg, NULL, &i2s_rx_handle);
+  if (err != ESP_OK) {
+    Serial.printf("Gagal membuat channel I2S: %d\n", err);
+    return;
+  }
+
+  i2s_std_config_t std_cfg = {
+      .clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG(8000),
+      .slot_cfg = I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_32BIT,
+                                                      I2S_SLOT_MODE_MONO),
+      .gpio_cfg =
+          {
+              .mclk = I2S_GPIO_UNUSED,
+              .bclk = (gpio_num_t)I2S_SCK,
+              .ws = (gpio_num_t)I2S_WS,
+              .dout = I2S_GPIO_UNUSED,
+              .din = (gpio_num_t)I2S_SD,
+              .invert_flags =
+                  {
+                      .mclk_inv = false,
+                      .bclk_inv = false,
+                      .ws_inv = false,
+                  },
+          },
+  };
+  // INMP441 pin L/R ke GND = Left Channel
+  std_cfg.slot_cfg.slot_mask = I2S_STD_SLOT_LEFT;
+
+  err = i2s_channel_init_std_mode(i2s_rx_handle, &std_cfg);
+  if (err != ESP_OK) {
+    Serial.printf("Gagal inisialisasi mode standar I2S: %d\n", err);
+  }
+}
+
 // SETUP
+
+void IRAM_ATTR handleButtonInterrupt() {
+  unsigned long currentTime = millis();
+  if (currentTime - lastDebounceTime > 250) {
+    buttonFlag = true;
+    lastDebounceTime = currentTime;
+  }
+}
+
+void IRAM_ATTR handlePttInterrupt() {
+  unsigned long currentTime = millis();
+  if (currentTime - lastPttDebounceTime > 300) {
+    pttFlag = true;
+    lastPttDebounceTime = currentTime;
+  }
+}
 
 void setup() {
   Serial.begin(115200);
   delay(1000);
 
   Serial.println();
-  Serial.println(
-    "Memulai REKSA Smart Helmet Node..."
-  );
+  Serial.println("Memulai REKSA Smart Helmet Node...");
 
   pinMode(BUZZER_PIN, OUTPUT);
   pinMode(VIBRATION_PIN, OUTPUT);
   stopAllWarnings();
 
-  Serial.print(
-    "Buzzer dikonfigurasi pada GPIO "
-  );
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+  pinMode(PTT_PIN, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), handleButtonInterrupt,
+                  FALLING);
+  attachInterrupt(digitalPinToInterrupt(PTT_PIN), handlePttInterrupt,
+                  FALLING);
+  pinMode(LED_PIN, OUTPUT);
+  digitalWrite(LED_PIN, HIGH);
+
+  pinMode(LED_PTT_PIN, OUTPUT);
+  digitalWrite(LED_PTT_PIN, LOW); // Indikator PTT mati saat awal menyala
+  Serial.print("LED Indikator PTT dikonfigurasi pada GPIO ");
+  Serial.println(LED_PTT_PIN);
+
+  Serial.print("Buzzer dikonfigurasi pada GPIO ");
   Serial.println(BUZZER_PIN);
 
-  Serial.print(
-    "Vibration dikonfigurasi pada GPIO "
-  );
+  Serial.print("Vibration dikonfigurasi pada GPIO ");
   Serial.println(VIBRATION_PIN);
 
   if (RUN_OUTPUT_SELF_TEST) {
@@ -1436,13 +1475,11 @@ void setup() {
 
   dht.begin();
 
-  Serial.print(
-    "DHT22 dikonfigurasi pada GPIO "
-  );
+  Serial.print("DHT22 dikonfigurasi pada GPIO ");
   Serial.println(DHT_PIN);
 
-  analogReadResolution(12);
-  analogSetPinAttenuation(MQ135_ADC_PIN, ADC_11db);
+  // Pengaturan default ADC ESP32 sudah 12-bit dan 11dB, fungsi legacy
+  // analogReadResolution & analogSetPinAttenuation dihapus agar tidak crash.
 
   Serial.print("MQ135 dikonfigurasi pada GPIO ");
   Serial.println(MQ135_ADC_PIN);
@@ -1457,10 +1494,7 @@ void setup() {
 
   bleScan = NimBLEDevice::getScan();
 
-  bleScan->setScanCallbacks(
-    new ScanCallbacks(),
-    true
-  );
+  bleScan->setScanCallbacks(new ScanCallbacks(), true);
 
   bleScan->setActiveScan(true);
   bleScan->setInterval(100);
@@ -1470,20 +1504,14 @@ void setup() {
   Serial.print("NimBLE Scanner aktif; free_heap=");
   Serial.println(ESP.getFreeHeap());
 
-  const BaseType_t taskCreated = xTaskCreate(
-    warningTask,
-    "REKSA_Warning",
-    2048,
-    nullptr,
-    1,
-    nullptr
-  );
+  const BaseType_t taskCreated =
+      xTaskCreate(warningTask, "REKSA_Warning", 2048, nullptr, 1, nullptr);
 
   if (taskCreated != pdPASS) {
-    Serial.println(
-      "Gagal membuat task warning."
-    );
+    Serial.println("Gagal membuat task warning.");
   }
+
+  setupI2S(); // Panggil dengan API I2S ESP-IDF v5
 
   setupWiFi();
   mqttClient.setServer(MQTT_SERVER, MQTT_PORT);
@@ -1498,6 +1526,28 @@ void setup() {
 // LOOP
 
 void loop() {
+  if (buttonFlag) {
+    buttonFlag = false;
+    isSystemActive = !isSystemActive;
+    if (isSystemActive) {
+      digitalWrite(LED_PIN, HIGH);
+      Serial.println("\n[SISTEM] Helm AKTIF.");
+    } else {
+      digitalWrite(LED_PIN, LOW);
+      digitalWrite(LED_PTT_PIN, LOW);
+      if (isRecording) {
+        isRecording = false;
+        if (i2s_rx_handle != NULL)
+          i2s_channel_disable(i2s_rx_handle);
+      }
+      stopAllWarnings();
+      currentWarningPriority = 0;
+      for (uint8_t i = 0; i < MAX_HAZARDS; i++)
+        resetHazard(hazards[i]);
+      Serial.println("\n[SISTEM] Helm DIMATIKAN (Standby).");
+    }
+  }
+
   if (WiFi.status() != WL_CONNECTED) {
     setupWiFi();
   }
@@ -1506,15 +1556,78 @@ void loop() {
     reconnectMQTT();
   }
 
+  // Handle PTT (Push-To-Talk Toggle via Interrupt)
+  if (pttFlag) {
+    pttFlag = false;
+    if (!isSystemActive) {
+      Serial.println("\n[AUDIO] PTT ditekan, tetapi sistem helm sedang STANDBY. Aktifkan helm dahulu!");
+    } else {
+      if (!isRecording) {
+        Serial.println("\n[AUDIO] Tombol PTT: Mulai rekam suara (START)... Bicara sekarang!");
+        isRecording = true;
+        digitalWrite(LED_PTT_PIN, HIGH); // NYALAKAN LAMPU INDIKATOR REKAM
+        if (i2s_rx_handle != NULL)
+          i2s_channel_enable(i2s_rx_handle);
+        mqttClient.publish("reksa/helmet/W01/voice/status", "start");
+      } else {
+        Serial.println("\n[AUDIO] Tombol PTT: Berhenti rekam suara (STOP). Memproses ke Wit.ai...");
+        isRecording = false;
+        digitalWrite(LED_PTT_PIN, LOW); // PADAMKAN LAMPU INDIKATOR REKAM
+        if (i2s_rx_handle != NULL)
+          i2s_channel_disable(i2s_rx_handle);
+        mqttClient.publish("reksa/helmet/W01/voice/status", "stop");
+      }
+    }
+  }
+
+  if (isRecording) {
+    // Baca 256 sample 32-bit dari I2S (256 sample = 512 bytes audio = ~32ms pada 8kHz)
+    int32_t rawBuffer[256];
+    int16_t audioBuffer[256];
+    size_t bytesIn = 0;
+    esp_err_t result = ESP_FAIL;
+    if (i2s_rx_handle != NULL) {
+      result = i2s_channel_read(i2s_rx_handle, rawBuffer, sizeof(rawBuffer),
+                                &bytesIn, 100 / portTICK_PERIOD_MS);
+    }
+
+    if (result == ESP_OK && bytesIn > 0) {
+      size_t samplesRead = bytesIn / sizeof(int32_t);
+      for (size_t i = 0; i < samplesRead; i++) {
+        // Ekstrak 16 MSB tepat dari frame 32-bit INMP441 (suara murni tanpa duplikasi robot):
+        audioBuffer[i] = (int16_t)(rawBuffer[i] >> 16);
+      }
+
+      if (mqttClient.connected()) {
+        bool sent = mqttClient.publish("reksa/helmet/W01/voice/stream",
+                           (const uint8_t *)audioBuffer, samplesRead * sizeof(int16_t), false);
+        if (!sent) {
+          Serial.println("[AUDIO] Gagal mengirim chunk ke MQTT! (Buffer penuh?)");
+        }
+      }
+    }
+
+    if (mqttClient.connected()) {
+      mqttClient.loop();
+    }
+
+    // PENTING: Saat merekam suara, BYPASS BLE scan dan pembacaan sensor lain
+    // agar audio mengalir lancar ke server tanpa terputus-putus.
+    return;
+  }
+
   if (mqttClient.connected()) {
     mqttClient.loop();
     flushTelemetryQueue();
   }
 
+  if (!isSystemActive) {
+    delay(100);
+    return;
+  }
+
   Serial.println();
-  Serial.println(
-    "Memindai seluruh hazard REKSA..."
-  );
+  Serial.println("Memindai seluruh hazard REKSA...");
 
   bleScan->getResults(BLE_SCAN_SECONDS * 1000UL, false);
 

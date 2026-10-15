@@ -25,3 +25,8 @@ secrets/
 .artifacts/
 output/documents/
 .~lock.*#
+*.wav
+backend/audio_records/
+.neon
+.agents/
+skills-lock.json

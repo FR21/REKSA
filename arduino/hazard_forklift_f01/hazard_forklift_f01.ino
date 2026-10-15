@@ -1,22 +1,23 @@
 #include <Arduino.h>
+#include <BLEAdvertising.h>
 #include <BLEDevice.h>
 #include <BLEUtils.h>
-#include <BLEAdvertising.h>
 
 /*
- * Node hazard untuk forklift F01.
- *
- * Helm mendeteksi perangkat BLE yang namanya diawali:
- * REKSA_HAZARD_
- *
- * ID setelah prefix ini akan dikirim helm ke web sebagai hazard_id.
- * Contoh:
- * REKSA_HAZARD_F01 -> hazard_id F01 -> Forklift Alpha di dashboard.
+ * Standar Reksa Industrial Beacon (11 karakter, ultra-fast zero-overhead):
+ * Format: RK_[CAT]_[TYP][NN]
+ * RK_M_FLK01 -> Mobile Hazard, Forklift Unit 01.
+ * Helm mendeteksi awalan "RK_" dan mengklasifikasikan kategori dalam hitungan nanodetik.
+ * (Legacy format: REKSA_HAZARD_F01 tetap didukung sebagai fallback).
  */
 
-const char* HAZARD_NAME = "REKSA_HAZARD_F01";
+const char *HAZARD_NAME = "RK_M_FLK01";
+BLEAdvertising *advertising = nullptr;
 
-BLEAdvertising* advertising = nullptr;
+const int BUTTON_PIN = 25; // Pin untuk tombol (pakai pull-up internal)
+const int LED_PIN = 2;     // Pin untuk LED indikator
+bool isAdvertising = true; // Status awal menyala
+bool lastButtonState = HIGH;
 
 void startAdvertising() {
   BLEAdvertisementData advertisementData;
@@ -38,14 +39,19 @@ void startAdvertising() {
   advertising->setMaxInterval(0x00F0);
 
   advertising->start();
+  Serial.println("BLE Sender ON - Hazard Aktif");
 }
 
 void setup() {
   Serial.begin(115200);
   delay(1000);
 
-  Serial.println();
-  Serial.println("Memulai REKSA Forklift Hazard Node...");
+  // Setup pin tombol sebagai INPUT dengan pull-up internal
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+  // Setup pin LED sebagai OUTPUT
+  pinMode(LED_PIN, OUTPUT);
+
+  Serial.println("\nMemulai REKSA Forklift Hazard Node...");
   Serial.print("Nama BLE: ");
   Serial.println(HAZARD_NAME);
 
@@ -53,17 +59,41 @@ void setup() {
   advertising = BLEDevice::getAdvertising();
 
   startAdvertising();
-
-  Serial.println("Forklift hazard node aktif.");
+  digitalWrite(LED_PIN, HIGH); // Nyalakan LED karena BLE aktif di awal
 }
 
 void loop() {
-  static unsigned long lastStatusAt = 0;
+  bool currentButtonState = digitalRead(BUTTON_PIN);
 
-  if (millis() - lastStatusAt >= 5000) {
-    lastStatusAt = millis();
-    Serial.println("BLE advertising aktif.");
+  // Mendeteksi ketika tombol baru saja ditekan (dari HIGH ke LOW)
+  if (lastButtonState == HIGH && currentButtonState == LOW) {
+    delay(50); // Debounce untuk menghindari efek pantulan (bouncing)
+    if (digitalRead(BUTTON_PIN) == LOW) {
+      if (isAdvertising) {
+        advertising->stop();
+        digitalWrite(LED_PIN, LOW); // Matikan LED
+        Serial.println("BLE Sender OFF - Hazard Dimatikan");
+      } else {
+        advertising->start();
+        digitalWrite(LED_PIN, HIGH); // Nyalakan LED
+        Serial.println("BLE Sender ON - Hazard Diaktifkan");
+      }
+      isAdvertising = !isAdvertising;
+    }
   }
 
-  delay(100);
+  lastButtonState = currentButtonState;
+
+  // Print status setiap 5 detik
+  static unsigned long lastStatusAt = 0;
+  if (millis() - lastStatusAt >= 5000) {
+    lastStatusAt = millis();
+    if (isAdvertising) {
+      Serial.println("BLE advertising aktif. Mengirim sinyal hazard...");
+    } else {
+      Serial.println("BLE sender sedang dimatikan (Standby).");
+    }
+  }
+
+  delay(50);
 }

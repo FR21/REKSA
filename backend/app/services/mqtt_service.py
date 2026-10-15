@@ -27,13 +27,15 @@ class MQTTService:
         "REKSA/helmet/+/warning/ack", "REKSA/hazard/+/beacon",
         "REKSA/hazard/+/status", "REKSA/environment/+/data",
         "REKSA/event/nearmiss", "REKSA/risk/+/score",
+        "reksa/helmet/+/voice/stream", "reksa/helmet/+/voice/status",
+        "REKSA/helmet/+/voice/stream", "REKSA/helmet/+/voice/status",
     )
 
     def __init__(
         self,
         host: str,
         port: int,
-        handler: Callable[[str, dict[str, Any]], None] | None = None,
+        handler: Callable[[str, dict[str, Any] | bytes], None] | None = None,
         *,
         username: str | None = None,
         password: str | None = None,
@@ -78,6 +80,7 @@ class MQTTService:
     def _on_connect(self, client: mqtt.Client, _userdata: Any, _flags: Any, reason_code: Any, _properties: Any) -> None:
         self.connected = reason_code == 0
         if self.connected:
+            logger.info("Successfully connected to MQTT broker %s:%s", self.host, self.port)
             client.publish(
                 "REKSA/backend/status",
                 json.dumps({"status": "ONLINE", "source": self.client_id}),
@@ -86,12 +89,24 @@ class MQTTService:
             )
             for topic in self.subscriptions:
                 client.subscribe(topic, qos=1)
+                logger.info("Subscribed to MQTT topic: %s", topic)
+        else:
+            logger.error("Failed to connect to MQTT broker %s:%s (reason_code=%s)", self.host, self.port, reason_code)
 
-    def _on_disconnect(self, _client: mqtt.Client, _userdata: Any, _flags: Any, _reason_code: Any, _properties: Any) -> None:
+    def _on_disconnect(self, _client: mqtt.Client, _userdata: Any, _flags: Any, reason_code: Any, _properties: Any) -> None:
         self.connected = False
+        logger.warning("Disconnected from MQTT broker %s:%s (reason_code=%s)", self.host, self.port, reason_code)
 
     def _on_message(self, _client: mqtt.Client, _userdata: Any, message: mqtt.MQTTMessage) -> None:
         try:
+            if "/voice/" in message.topic:
+                if self.handler:
+                    if asyncio.iscoroutinefunction(self.handler) and self.loop:
+                        asyncio.run_coroutine_threadsafe(self.handler(message.topic, message.payload), self.loop)
+                    else:
+                        self.handler(message.topic, message.payload)
+                return
+
             payload = json.loads(message.payload.decode("utf-8"))
             category = message.topic.split("/")[1]
             schema = TOPIC_SCHEMAS.get(category)

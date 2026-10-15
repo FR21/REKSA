@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import type { Worker } from '../types'
+import type { VoiceTransmission, Worker } from '../types'
 import { useLiveStore } from '../stores/liveStore'
 
 interface LiveEvent {
@@ -16,6 +16,7 @@ export function useLiveSocket() {
   const deleteWorker = useLiveStore((state) => state.deleteWorker)
   const setWsStatus = useLiveStore((state) => state.setWsStatus)
   const registerEvent = useLiveStore((state) => state.registerEvent)
+  const addVoiceTransmission = useLiveStore((state) => state.addVoiceTransmission)
 
   useEffect(() => {
     let socket: WebSocket | undefined
@@ -36,16 +37,26 @@ export function useLiveSocket() {
       socket.onmessage = (message) => {
         const envelope = JSON.parse(message.data as string) as LiveEvent
         const id = `${envelope.event}-${envelope.timestamp ?? JSON.stringify(envelope.data).slice(0, 40)}`
-        if (!registerEvent(id, envelope.event === 'near_miss.created' || envelope.event === 'warning.created')) return
+        if (!registerEvent(id, envelope.event === 'near_miss.created' || envelope.event === 'warning.created' || envelope.event === 'voice.command' || envelope.event === 'voice.transmission', envelope as { event?: string; data?: Record<string, unknown> })) return
         if (envelope.event === 'worker.updated') {
           const data = envelope.data as Worker | { workers?: Worker[] }
           if ('workers' in data && Array.isArray(data.workers)) setWorkers(data.workers)
           else updateWorker(data as Worker)
           void queryClient.invalidateQueries({ queryKey: ['workers'] })
           void queryClient.invalidateQueries({ queryKey: ['summary'] })
+          void queryClient.invalidateQueries({ queryKey: ['dashboard-live'] })
+          void queryClient.invalidateQueries({ queryKey: ['risk-trend'] })
+          void queryClient.invalidateQueries({ queryKey: ['activity'] })
+        }
+        if (envelope.event === 'voice.transmission') {
+          addVoiceTransmission(envelope.data as VoiceTransmission)
+          void queryClient.invalidateQueries({ queryKey: ['voice-transmissions'] })
         }
         if (envelope.event === 'worker.deleted') deleteWorker((envelope.data as { id: string }).id)
-        if (['near_miss.created', 'near_miss.acknowledged', 'warning.created', 'simulation.status_changed', 'worker.deleted', 'device.deleted', 'device.paired'].includes(envelope.event)) {
+        if (envelope.event === 'profile.updated') {
+          void queryClient.invalidateQueries({ queryKey: ['profile'] })
+        }
+        if (['near_miss.created', 'near_miss.acknowledged', 'warning.created', 'simulation.status_changed', 'worker.deleted', 'device.deleted', 'device.paired', 'voice.transmission_acknowledged'].includes(envelope.event)) {
           void queryClient.invalidateQueries()
         }
       }
@@ -63,5 +74,5 @@ export function useLiveSocket() {
       if (heartbeat) clearInterval(heartbeat)
       socket?.close()
     }
-  }, [queryClient, registerEvent, setWsStatus, setWorkers, updateWorker, deleteWorker])
+  }, [queryClient, registerEvent, setWsStatus, setWorkers, updateWorker, deleteWorker, addVoiceTransmission])
 }

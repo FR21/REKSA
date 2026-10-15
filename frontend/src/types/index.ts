@@ -26,6 +26,7 @@ export interface Worker {
   closest_hazard: string
   hazard_name: string
   hazard_type: string
+  hazard_category?: 'MOBILE' | 'STATIONARY'
   hazard_status: string
   rssi: number
   smoothed_rssi: number
@@ -42,8 +43,8 @@ export interface Worker {
   humidity: number
   online: boolean
   last_update: string
-  x: number
-  y: number
+  x?: number
+  y?: number
   calculation_source: string
   dominant_factor: string
   recommended_action: string
@@ -54,11 +55,14 @@ export interface Hazard {
   id: string
   name: string
   type: string
+  category?: 'MOBILE' | 'STATIONARY'
   status: string
   online: boolean
-  x: number
-  y: number
+  x?: number
+  y?: number
   area: string
+  beacon_name?: string
+  alias?: string
   nearby_workers?: Worker[]
   exposure_count?: number
   near_miss_count?: number
@@ -81,6 +85,8 @@ export interface NearMiss {
   warning_status: string
   acknowledged: boolean
   note: string
+  acknowledged_by?: string
+  acknowledged_at?: string
 }
 
 export interface Device {
@@ -104,4 +110,35 @@ export interface HistoryPoint {
   humidity: number
   uptime: number
   warning_latency: number
+}
+
+export interface VoiceTransmission {
+  id: string
+  timestamp: string
+  worker_id: string
+  worker_name: string
+  worker_role?: string
+  area: string
+  transcription: string
+  intent: 'EMERGENCY_EVACUATE' | 'ASSISTANCE_SOS' | 'MACHINE_HALT' | 'HAZARD_REPORT' | 'SAFETY_STATUS' | 'GENERAL_TRANSMISSION'
+  intent_label: string
+  urgency: 'CRITICAL' | 'HIGH' | 'MODERATE' | 'INFO'
+  nature: string
+  confidence: number
+  target_hazard_id?: string | null
+  target_hazard_name?: string | null
+  target_hazard_type?: string | null
+  recommended_action: string
+  acknowledged: boolean
+  acknowledged_by?: string | null
+  supervisor_note?: string
+  action_taken?: string | null
+  audio_available: boolean
+  audio_url: string
+}
+
+export interface UserProfile {
+  name: string
+  role: string
+  initials: string
 }

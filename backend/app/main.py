@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 
@@ -19,32 +20,41 @@ from app.services.runtime import ai_advisory_service
 from app.services.websocket_service import websocket_manager
 from app.simulation.engine import simulation_engine
 
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+
 
 async def monitor_inactivity() -> None:
+    from app.api.v1.router import SYSTEM_SETTINGS, sync_today_history
     while True:
         await asyncio.sleep(5)
         now = datetime.now(UTC)
-        threshold = timedelta(seconds=15)
+        timeout_seconds = SYSTEM_SETTINGS.get("device_offline_timeout", 60)
+        threshold = timedelta(seconds=timeout_seconds)
         
-        for worker in simulation_engine.state["workers"]:
-            if worker.get("online") and worker.get("last_update"):
-                last_update = datetime.fromisoformat(worker["last_update"])
-                if now - last_update > threshold:
-                    worker["online"] = False
-                    await websocket_manager.broadcast("worker.updated", worker)
-                    
-        for device in simulation_engine.state["devices"]:
-            if device.get("online") and device.get("last_seen"):
-                last_seen = datetime.fromisoformat(device["last_seen"])
-                if now - last_seen > threshold:
-                    device["online"] = False
-                    await websocket_manager.broadcast("device.paired", device)
-                    
-        for hazard in simulation_engine.state["hazards"]:
-            if hazard.get("online") and hazard.get("last_update"):
-                last_update = datetime.fromisoformat(hazard["last_update"])
-                if now - last_update > threshold:
-                    hazard["online"] = False
+        try:
+            sync_today_history()
+        except Exception:
+            pass
+        
+        for device in simulation_engine.state.get("devices", []):
+            if device.get("hardware_source") and device.get("online") and device.get("last_seen"):
+                try:
+                    last_seen = datetime.fromisoformat(device["last_seen"])
+                    if now - last_seen > threshold:
+                        device["online"] = False
+                        await websocket_manager.broadcast("device.paired", device)
+                except Exception:
+                    pass
+        
+        for worker in simulation_engine.state.get("workers", []):
+            if worker.get("hardware_source") and worker.get("online") and worker.get("last_update"):
+                try:
+                    last_update = datetime.fromisoformat(worker["last_update"])
+                    if now - last_update > threshold:
+                        worker["online"] = False
+                        await websocket_manager.broadcast("worker.updated", worker)
+                except Exception:
+                    pass
 
 mqtt_service = MQTTService(
     settings.mqtt_host,
@@ -65,6 +75,24 @@ async def lifespan(_: FastAPI):
     Base.metadata.create_all(bind=engine)
     with SessionLocal() as db:
         seed_database(db)
+
+    try:
+        from app.api.v1.router import CURRENT_USER_PROFILE, SYSTEM_SETTINGS
+        from app.services.db_service import db_service
+        from app.simulation.engine import simulation_engine
+
+        db_near_misses = db_service.load_near_misses_from_db()
+        if db_near_misses:
+            simulation_engine.state["near_misses"] = db_near_misses
+        db_settings = db_service.load_settings_from_db()
+        if db_settings:
+            SYSTEM_SETTINGS.update(db_settings)
+        db_profile = db_service.get_profile_sync()
+        if db_profile:
+            CURRENT_USER_PROFILE.update(db_profile)
+    except Exception as exc:
+        logging.getLogger(__name__).warning("Failed to warm state from DB: %s", exc)
+
     if settings.mqtt_enabled:
         mqtt_service.loop = asyncio.get_running_loop()
         mqtt_service.start()

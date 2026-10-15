@@ -8,6 +8,7 @@ const Live = lazy(() => import('../pages/LiveMonitoringPage'))
 
 const WorkerDetail = lazy(() => import('../pages/WorkerDetailPage'))
 const Workers = lazy(() => import('../pages/WorkersPage'))
+const NearMisses = lazy(() => import('../pages/NearMissesPage'))
 const Settings = lazy(() => import('../pages/SettingsPage'))
 
 const withSuspense = (element: React.ReactNode) => <Suspense fallback={<LoadingState label="Membuka modul..." />}>{element}</Suspense>
@@ -16,6 +17,7 @@ export const router = createBrowserRouter([{
   path: '/', element: <AppLayout />, children: [
     { index: true, element: withSuspense(<Overview />) },
     { path: 'live', element: withSuspense(<Live />) },
+    { path: 'near-misses', element: withSuspense(<NearMisses />) },
     { path: 'workers', element: withSuspense(<Workers />) },
     { path: 'workers/:workerId', element: withSuspense(<WorkerDetail />) },
     { path: 'settings', element: withSuspense(<Settings />) },
