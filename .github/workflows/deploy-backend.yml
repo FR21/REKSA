@@ -26,7 +26,19 @@ jobs:
         uses: google-github-actions/setup-gcloud@v2
 
       - name: Deploy Backend to Cloud Run
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
         run: |
+          cat << 'EOF' > env.yaml
+          APP_ENV: "production"
+          MQTT_ENABLED: "false"
+          DATABASE_URL: "$DATABASE_URL"
+          CORS_ORIGINS: "https://reksa-k3.web.app,https://$GCP_PROJECT_ID.web.app,http://localhost:5173"
+          EOF
+          sed -i "s|\$DATABASE_URL|${DATABASE_URL}|g" env.yaml
+          sed -i "s|\$GCP_PROJECT_ID|${GCP_PROJECT_ID}|g" env.yaml
+
           gcloud run deploy reksa-backend \
             --source backend \
             --region asia-southeast2 \
@@ -35,4 +47,4 @@ jobs:
             --cpu 1 \
             --min-instances 0 \
             --max-instances 2 \
-            --set-env-vars "^@^APP_ENV=production@MQTT_ENABLED=false@DATABASE_URL=${{ secrets.DATABASE_URL }}@CORS_ORIGINS=https://reksa-k3.web.app,https://${{ secrets.GCP_PROJECT_ID }}.web.app,http://localhost:5173"
+            --env-vars-file env.yaml

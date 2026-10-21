@@ -72,9 +72,12 @@ mqtt_service = MQTTService(
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    Base.metadata.create_all(bind=engine)
-    with SessionLocal() as db:
-        seed_database(db)
+    try:
+        Base.metadata.create_all(bind=engine)
+        with SessionLocal() as db:
+            seed_database(db)
+    except Exception as exc:
+        logging.getLogger(__name__).error("Failed during initial DB setup/seed: %s", exc)
 
     try:
         from app.api.v1.router import CURRENT_USER_PROFILE, SYSTEM_SETTINGS
