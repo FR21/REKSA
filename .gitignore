@@ -20,7 +20,6 @@ bridge/.env
 bridge/data/
 .env.hivemq
 secrets/
-.firebaserc
 .firebase/
 .artifacts/
 output/documents/

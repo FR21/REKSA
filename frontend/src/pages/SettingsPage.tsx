@@ -1001,7 +1001,7 @@ export default function SettingsPage() {
                             }}
                             style={{ background: 'none', border: 'none', color: '#2563eb', fontSize: '12px', fontWeight: 600, cursor: 'pointer', padding: 0 }}
                           >
-                            {isAddingHazardArea ? t.workers.btnCancelAdd : `+ ${t.settings.addNewArea}`}
+                            {isAddingHazardArea ? t.common.cancel : `+ ${t.settings.addNewArea}`}
                           </button>
                         </div>
 
