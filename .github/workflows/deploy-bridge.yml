@@ -45,10 +45,10 @@ jobs:
             --source bridge \
             --region asia-southeast2 \
             --allow-unauthenticated \
-            --memory 1Gi \
+            --memory 512Mi \
             --cpu 1 \
             --min-instances 1 \
             --max-instances 1 \
-            --no-cpu-throttling \
             --env-vars-file env.yaml
+
 
