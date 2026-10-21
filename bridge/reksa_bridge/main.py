@@ -98,7 +98,7 @@ class Bridge:
                         pubsub_message_id=pubsub_id,
                     )
                     logger.info("Forwarded %s to Pub/Sub as %s", pending.message_id, pubsub_id)
-                except Exception as exc:  # retry is intentionally broad at the durable boundary
+                except Exception as exc:
                     self.outbox.mark_attempt(pending.message_id)
                     logger.warning("Pub/Sub unavailable; retained %s: %s", pending.message_id, exc)
                     break
@@ -133,8 +133,20 @@ class Bridge:
     def run(self) -> None:
         threading.Thread(target=self.publish_pending, daemon=True, name="pubsub-outbox").start()
         self.client.connect(self.mqtt_host, self.mqtt_port, keepalive=30)
-        self.client.loop_forever(retry_first_connection=True)
+        threading.Thread(target=self.client.loop_forever, kwargs={"retry_first_connection": True}, daemon=True, name="mqtt-loop").start()
+
+        port = int(os.getenv("PORT", "8080"))
+        logger.info("Bridge started. Serving HTTP health checks on port %d", port)
+
+        async def app(scope, receive, send):
+            if scope["type"] == "http":
+                await send({"type": "http.response.start", "status": 200, "headers": [[b"content-type", b"application/json"]]})
+                await send({"type": "http.response.body", "body": b'{"status":"healthy","service":"reksa-bridge"}'})
+
+        import uvicorn
+        uvicorn.run(app, host="0.0.0.0", port=port, log_level="warning")
 
 
 def run() -> None:
     Bridge().run()
+

@@ -1,7 +1,6 @@
 #include <Arduino.h>
 #include <NimBLEDevice.h>
 #include <driver/i2s_std.h>
-
 #include <ArduinoJson.h>
 #include <DHT.h>
 #include <PubSubClient.h>
@@ -10,7 +9,6 @@
 #include <Wire.h>
 #include <limits.h>
 #include <time.h>
-
 #if __has_include("secrets.h")
 #include "secrets.h"
 #else
@@ -19,14 +17,12 @@
 #endif
 
 // IDENTITAS PERANGKAT
-
 const char *HELMET_NAME = "REKSA_HELMET_W01";
 const char *WORKER_ID = "W01"; // ID Pekerja untuk Topic MQTT
 const char *BEACON_PREFIX = "RK_";
 const char *HAZARD_PREFIX = "REKSA_HAZARD_"; // Legacy fallback prefix
 
 // KONFIGURASI WIFI & MQTT
-
 const char *WIFI_SSID = REKSA_WIFI_SSID;
 const char *WIFI_PASSWORD = REKSA_WIFI_PASSWORD;
 const char *MQTT_SERVER = REKSA_MQTT_HOST;
@@ -38,7 +34,7 @@ const char *NTP_FALLBACK_1 = "time.google.com";
 const char *NTP_FALLBACK_2 = "time.cloudflare.com";
 constexpr long GMT_OFFSET_SECONDS = 0;
 constexpr int DAYLIGHT_OFFSET_SECONDS = 0;
-constexpr time_t MIN_VALID_TLS_EPOCH = 1700000000; // 2023-11-14 UTC
+constexpr time_t MIN_VALID_TLS_EPOCH = 1700000000;
 constexpr unsigned long NTP_SYNC_TIMEOUT_MS = 15000;
 
 #if REKSA_MQTT_USE_TLS
@@ -66,20 +62,15 @@ PendingTelemetry telemetryQueue[TELEMETRY_QUEUE_CAPACITY] = {};
 uint32_t telemetryDroppedCount = 0;
 
 // KONFIGURASI PIN
-
 constexpr uint8_t DHT_PIN = 18;
 constexpr uint8_t DHT_TYPE = DHT22;
-
 constexpr uint8_t BUZZER_PIN = 19;
 constexpr uint8_t VIBRATION_PIN = 23;
-
 constexpr uint8_t I2C_SDA_PIN = 21;
 constexpr uint8_t I2C_SCL_PIN = 22;
 constexpr uint8_t MQ135_ADC_PIN = 34;
-
 constexpr uint8_t BUTTON_PIN = 25;
 constexpr uint8_t PTT_PIN = 26;
-
 // I2S INMP441 Pins
 constexpr uint8_t I2S_WS = 32;
 constexpr uint8_t I2S_SCK = 33;
@@ -88,9 +79,9 @@ i2s_chan_handle_t i2s_rx_handle = NULL;
 
 bool isRecording = false;
 constexpr uint8_t LED_PIN =
-    2; // Pakai pin 2 agar lampu biru bawaan ESP32 ikut menyala
+    2; // Pin 2 agar lampu biru bawaan ESP32 ikut menyala
 constexpr uint8_t LED_PTT_PIN =
-    4; // Pin GPIO 4 untuk lampu indikator Speech-to-Text / PTT (Merekam suara)
+    4; // Pin GPIO 4 untuk lampu indikator Speech-to-Text
 bool isSystemActive = true;
 
 volatile bool buttonFlag = false;
@@ -101,22 +92,17 @@ volatile unsigned long lastPttDebounceTime = 0;
 // Active-low flag untuk modul buzzer/vibrasi.
 constexpr bool BUZZER_ACTIVE_LOW = true;
 constexpr bool VIBRATION_ACTIVE_LOW = false;
-
-// Set true untuk menguji modul buzzer dan vibrasi saat boot.
 constexpr bool RUN_OUTPUT_SELF_TEST = false;
 
 // KONFIGURASI DHT22
-
 constexpr unsigned long DHT_READ_INTERVAL_MS = 2500;
 DHT dht(DHT_PIN, DHT_TYPE);
-
 float latestTemperature = NAN;
 float latestHumidity = NAN;
 bool dhtValid = false;
 unsigned long lastDhtReadAt = 0;
 
 // KONFIGURASI MPU6050 DAN MQ135
-
 constexpr uint8_t MPU6050_ADDRESS = 0x68;
 constexpr uint8_t MPU6050_PWR_MGMT_1 = 0x6B;
 constexpr uint8_t MPU6050_GYRO_CONFIG = 0x1B;
@@ -162,7 +148,6 @@ bool latestGasAlert = false;
 unsigned long lastSensorReadAt = 0;
 
 // KONFIGURASI BLE DAN HAZARD
-
 constexpr uint8_t MAX_HAZARDS = 10;
 constexpr uint8_t BLE_SCAN_SECONDS = 1;
 constexpr unsigned long HAZARD_TIMEOUT_MS = 6000;
@@ -186,7 +171,6 @@ constexpr int RSSI_HYSTERESIS_DB = 3;
 NimBLEScan *bleScan = nullptr;
 
 // KONFIGURASI POLA WARNING
-
 // HIGH: buzzer dan vibration berdenyut cepat.
 constexpr unsigned long HIGH_ON_MS = 200;
 constexpr unsigned long HIGH_OFF_MS = 100;
@@ -198,7 +182,6 @@ constexpr unsigned long HIGH_OFF_MS = 100;
 volatile uint8_t currentWarningPriority = 0;
 
 // TIPE DATA
-
 enum class ProximityZone : uint8_t {
   ZONE_UNKNOWN = 0,
   ZONE_SAFE = 1,
@@ -231,7 +214,6 @@ struct HazardData {
 
 inline bool isMobileHazardFast(const char *name, size_t len) {
   // Format Standar Reksa: "RK_M_..." (Mobile) vs "RK_S_..." (Stationary)
-  // Dilakukan dalam 1 siklus CPU Xtensa LX6 (~4.16 nanodetik) tanpa alokasi heap
   if (len >= 4 && name[0] == 'R' && name[1] == 'K' && name[2] == '_') {
     return name[3] == 'M';
   }
@@ -255,7 +237,6 @@ bool isMobileHazard(const String &name) {
 HazardData hazards[MAX_HAZARDS];
 
 // KONTROL OUTPUT
-
 void setModuleOutput(uint8_t pin, bool active, bool activeLow) {
   const uint8_t outputLevel =
       active ? (activeLow ? LOW : HIGH) : (activeLow ? HIGH : LOW);
@@ -302,7 +283,6 @@ void testWarningModules() {
 }
 
 // UTILITAS ZONA
-
 const char *zoneToString(ProximityZone zone) {
   switch (zone) {
   case ProximityZone::ZONE_SAFE:
@@ -390,7 +370,6 @@ ProximityZone determineZoneWithHysteresis(int rssi, ProximityZone currentZone, b
 }
 
 // PENGELOLAAN DATA HAZARD
-
 void resetHazard(HazardData &hazard) {
   hazard.used = false;
 
@@ -549,7 +528,6 @@ void removeInactiveHazards() {
 }
 
 // CALLBACK BLE
-
 class ScanCallbacks : public NimBLEScanCallbacks {
   void onResult(const NimBLEAdvertisedDevice *advertisedDevice) override {
     if (!advertisedDevice->haveName()) {
@@ -582,7 +560,6 @@ class ScanCallbacks : public NimBLEScanCallbacks {
 };
 
 // DHT22
-
 void updateDHT22() {
   const unsigned long currentTime = millis();
 
@@ -607,7 +584,6 @@ void updateDHT22() {
 }
 
 // MPU6050 DAN MQ135
-
 bool writeMPU6050Register(uint8_t reg, uint8_t value) {
   Wire.beginTransmission(MPU6050_ADDRESS);
   Wire.write(reg);
@@ -631,8 +607,6 @@ bool readMPU6050Raw(int16_t &ax, int16_t &ay, int16_t &az, int16_t &gx,
   ax = Wire.read() << 8 | Wire.read();
   ay = Wire.read() << 8 | Wire.read();
   az = Wire.read() << 8 | Wire.read();
-
-  // Temperature internal MPU6050 tidak dipakai.
   Wire.read();
   Wire.read();
 
@@ -729,7 +703,6 @@ void updateMotionAndAirQuality() {
 }
 
 // PENENTUAN HAZARD PRIORITAS
-
 int getMostDangerousHazardIndex() {
   int selectedIndex = -1;
   uint8_t highestPriority = 0;
@@ -766,7 +739,6 @@ void updateWarningPriority() {
 }
 
 // TASK WARNING NON-BLOCKING
-
 void warningTask(void *parameter) {
   uint8_t previousPriority = 255;
   bool vibrationPhaseOn = false;
@@ -823,7 +795,6 @@ void warningTask(void *parameter) {
 }
 
 // OUTPUT SERIAL
-
 void printDHTData() {
   Serial.println();
   Serial.println("========== KONDISI LINGKUNGAN ==========");
@@ -997,7 +968,6 @@ void printWarningStatus() {
 }
 
 // WIFI & MQTT PROCEDURES
-
 bool waitForValidTlsClock(unsigned long timeoutMs) {
 #if !REKSA_MQTT_USE_TLS
   return true;
@@ -1067,7 +1037,6 @@ void setupWiFi() {
 }
 
 void mqttCallback(char *topic, byte *payload, unsigned int length) {
-  // Cek apakah pesan adalah ACK telemetri dari server
   if (String(topic).endsWith("/telemetry/ack")) {
     StaticJsonDocument<512> doc;
     DeserializationError error = deserializeJson(doc, (const char *)payload, length);
@@ -1093,7 +1062,6 @@ void mqttCallback(char *topic, byte *payload, unsigned int length) {
     return;
   }
 
-  // Jika pesan bukan ACK (misalnya instruksi bahaya / warning dari dispatcher)
   Serial.print("\n[PERINGATAN MASUK] Topik: ");
   Serial.println(topic);
 
@@ -1233,7 +1201,6 @@ void flushTelemetryQueue() {
     if (!item.used) {
       continue;
     }
-    // Jika sudah coba 5 kali belum dapat ACK, buang agar antrean tidak tersumbat
     if (item.attempts >= 5) {
       item.used = false;
       Serial.print("Telemetry kedaluwarsa dibuang (5 attempts): ");
@@ -1382,7 +1349,6 @@ void publishSensorData() {
 }
 
 // SETUP I2S
-
 void setupI2S() {
   i2s_chan_config_t chan_cfg =
       I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_1, I2S_ROLE_MASTER);
@@ -1421,7 +1387,6 @@ void setupI2S() {
 }
 
 // SETUP
-
 void IRAM_ATTR handleButtonInterrupt() {
   unsigned long currentTime = millis();
   if (currentTime - lastDebounceTime > 250) {
@@ -1459,7 +1424,7 @@ void setup() {
   digitalWrite(LED_PIN, HIGH);
 
   pinMode(LED_PTT_PIN, OUTPUT);
-  digitalWrite(LED_PTT_PIN, LOW); // Indikator PTT mati saat awal menyala
+  digitalWrite(LED_PTT_PIN, LOW);
   Serial.print("LED Indikator PTT dikonfigurasi pada GPIO ");
   Serial.println(LED_PTT_PIN);
 
@@ -1477,10 +1442,6 @@ void setup() {
 
   Serial.print("DHT22 dikonfigurasi pada GPIO ");
   Serial.println(DHT_PIN);
-
-  // Pengaturan default ADC ESP32 sudah 12-bit dan 11dB, fungsi legacy
-  // analogReadResolution & analogSetPinAttenuation dihapus agar tidak crash.
-
   Serial.print("MQ135 dikonfigurasi pada GPIO ");
   Serial.println(MQ135_ADC_PIN);
 
@@ -1511,7 +1472,7 @@ void setup() {
     Serial.println("Gagal membuat task warning.");
   }
 
-  setupI2S(); // Panggil dengan API I2S ESP-IDF v5
+  setupI2S();
 
   setupWiFi();
   mqttClient.setServer(MQTT_SERVER, MQTT_PORT);
@@ -1524,7 +1485,6 @@ void setup() {
 }
 
 // LOOP
-
 void loop() {
   if (buttonFlag) {
     buttonFlag = false;
@@ -1565,14 +1525,14 @@ void loop() {
       if (!isRecording) {
         Serial.println("\n[AUDIO] Tombol PTT: Mulai rekam suara (START)... Bicara sekarang!");
         isRecording = true;
-        digitalWrite(LED_PTT_PIN, HIGH); // NYALAKAN LAMPU INDIKATOR REKAM
+        digitalWrite(LED_PTT_PIN, HIGH);
         if (i2s_rx_handle != NULL)
           i2s_channel_enable(i2s_rx_handle);
         mqttClient.publish("reksa/helmet/W01/voice/status", "start");
       } else {
         Serial.println("\n[AUDIO] Tombol PTT: Berhenti rekam suara (STOP). Memproses ke Wit.ai...");
         isRecording = false;
-        digitalWrite(LED_PTT_PIN, LOW); // PADAMKAN LAMPU INDIKATOR REKAM
+        digitalWrite(LED_PTT_PIN, LOW);
         if (i2s_rx_handle != NULL)
           i2s_channel_disable(i2s_rx_handle);
         mqttClient.publish("reksa/helmet/W01/voice/status", "stop");
@@ -1590,11 +1550,10 @@ void loop() {
       result = i2s_channel_read(i2s_rx_handle, rawBuffer, sizeof(rawBuffer),
                                 &bytesIn, 100 / portTICK_PERIOD_MS);
     }
-
     if (result == ESP_OK && bytesIn > 0) {
       size_t samplesRead = bytesIn / sizeof(int32_t);
       for (size_t i = 0; i < samplesRead; i++) {
-        // Ekstrak 16 MSB tepat dari frame 32-bit INMP441 (suara murni tanpa duplikasi robot):
+        // Ekstrak 16 MSB tepat dari frame 32-bit INMP441
         audioBuffer[i] = (int16_t)(rawBuffer[i] >> 16);
       }
 
@@ -1610,9 +1569,6 @@ void loop() {
     if (mqttClient.connected()) {
       mqttClient.loop();
     }
-
-    // PENTING: Saat merekam suara, BYPASS BLE scan dan pembacaan sensor lain
-    // agar audio mengalir lancar ke server tanpa terputus-putus.
     return;
   }
 

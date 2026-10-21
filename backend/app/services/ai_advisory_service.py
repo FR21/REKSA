@@ -34,7 +34,6 @@ class AIAdvisoryService:
 
     def _sample(self, payload: dict[str, Any], proximity: str, hazard_active: bool) -> dict[str, Any]:
         acceleration = payload.get("acceleration") or {}
-        # Firmware telemetry is expressed in m/s². The AI contract uses g.
         acceleration_g = {
             axis: float(acceleration.get(axis, 0.0)) / 9.80665 for axis in ("x", "y", "z")
         }

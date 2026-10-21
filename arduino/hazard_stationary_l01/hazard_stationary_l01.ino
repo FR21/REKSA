@@ -16,9 +16,9 @@
 const char *HAZARD_NAME = "RK_S_LSR01";
 BLEAdvertising *advertising = nullptr;
 
-const int BUTTON_PIN = 25; // Pin tombol toggle aktif/standby
-const int LED_PIN = 2;     // Pin LED indikator
-bool isAdvertising = true; // Menyala saat mesin beroperasi
+const int BUTTON_PIN = 25;
+const int LED_PIN = 2;
+bool isAdvertising = true;
 bool lastButtonState = HIGH;
 
 void startAdvertising() {
@@ -61,8 +61,6 @@ void setup() {
 
 void loop() {
   bool currentButtonState = digitalRead(BUTTON_PIN);
-
-  // Toggle interlock / standby mesin
   if (lastButtonState == HIGH && currentButtonState == LOW) {
     delay(50);
     if (digitalRead(BUTTON_PIN) == LOW) {

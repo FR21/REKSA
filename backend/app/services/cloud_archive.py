@@ -15,7 +15,7 @@ async def archive_ingest_event(envelope: dict[str, Any], pubsub_message_id: str)
     def write() -> None:
         try:
             from google.cloud import firestore
-        except ImportError as exc:  # pragma: no cover - deployment configuration error
+        except ImportError as exc:
             raise RuntimeError("google-cloud-firestore is required when FIRESTORE_ENABLED=true") from exc
         client = firestore.Client(project=settings.google_cloud_project)
         client.collection(settings.firestore_collection).document(pubsub_message_id).set(

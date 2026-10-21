@@ -60,9 +60,6 @@ class MQTTService:
             self.client.username_pw_set(username, password)
         if use_tls:
             self.client.tls_set(
-                # An empty MQTT_CA_CERT means "use the operating system trust
-                # store". Passing an empty string to paho makes OpenSSL treat it
-                # as a filename and crashes application startup.
                 ca_certs=ca_cert or None,
                 cert_reqs=ssl.CERT_REQUIRED,
                 tls_version=ssl.PROTOCOL_TLS_CLIENT,

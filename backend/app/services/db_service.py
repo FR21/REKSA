@@ -368,7 +368,6 @@ class DatabaseService:
                     name = setting.value_json.get("name", "Raka Wijaya")
                     role = setting.value_json.get("role", "Supervisor K3")
                     return {"name": name, "role": role}
-                # Initialize profile if not exists
                 initial_profile = {"name": "Raka Wijaya", "role": "Supervisor K3"}
                 db.add(
                     SystemSetting(

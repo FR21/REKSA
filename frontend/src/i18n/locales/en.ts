@@ -439,7 +439,7 @@ export const en: TranslationSchema = {
     creatorBtnSaving: 'Registering...',
     firmwareBeaconStandard: 'Beacon Firmware Standard (ESP32):',
     firmwareCopyTooltip: 'Copy BLE code to clipboard',
-    firmwareHelmetNote: '• Safety Telemetry: Fall detection, heart rate, IMU sensors, radio dispatch & emergency buzzer.',
+    firmwareHelmetNote: '• Safety Telemetry: Fall detection, IMU sensors, radio dispatch & emergency buzzer.',
     firmwareMobileNote: '• Mobile Profile (3.5m - 10m perimeter): Forklift braking distance reaction.',
     firmwareStationaryNote: '• Stationary Profile (1.2m - 4.0m perimeter): Machine pinch-point proximity.',
     unifiedBindingTitle: 'Reksa Node Specification & Firmware',
