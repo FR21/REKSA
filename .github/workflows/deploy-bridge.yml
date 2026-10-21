@@ -28,19 +28,25 @@ jobs:
       - name: Deploy Bridge to Cloud Run
         env:
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-          HIVEMQ_PASSWORD: ${{ secrets.HIVEMQ_PASSWORD || 'Terbukalahiot23_' }}
+          HIVEMQ_HOST: ${{ secrets.HIVEMQ_HOST }}
+          HIVEMQ_USERNAME: ${{ secrets.HIVEMQ_USERNAME }}
+          HIVEMQ_PASSWORD: ${{ secrets.HIVEMQ_PASSWORD }}
+          PUBSUB_TOPIC: ${{ secrets.PUBSUB_TOPIC || 'reksa-telemetry' }}
         run: |
           cat << 'EOF' > env.yaml
           GOOGLE_CLOUD_PROJECT: "$GCP_PROJECT_ID"
-          PUBSUB_TOPIC: "reksa-telemetry"
-          MQTT_HOST: "7f6f4329c068430fbdbaa80c8eff1265.s1.eu.hivemq.cloud"
+          PUBSUB_TOPIC: "$PUBSUB_TOPIC"
+          MQTT_HOST: "$HIVEMQ_HOST"
           MQTT_PORT: "8883"
-          MQTT_USERNAME: "reksa-backend"
+          MQTT_USERNAME: "$HIVEMQ_USERNAME"
           MQTT_PASSWORD: "$HIVEMQ_PASSWORD"
           BRIDGE_ID: "reksa-cloud-bridge-01"
           OUTBOX_PATH: "/tmp/outbox.db"
           EOF
           sed -i "s|\$GCP_PROJECT_ID|${GCP_PROJECT_ID}|g" env.yaml
+          sed -i "s|\$PUBSUB_TOPIC|${PUBSUB_TOPIC}|g" env.yaml
+          sed -i "s|\$HIVEMQ_HOST|${HIVEMQ_HOST}|g" env.yaml
+          sed -i "s|\$HIVEMQ_USERNAME|${HIVEMQ_USERNAME}|g" env.yaml
           sed -i "s|\$HIVEMQ_PASSWORD|${HIVEMQ_PASSWORD}|g" env.yaml
 
           gcloud run deploy reksa-bridge \
