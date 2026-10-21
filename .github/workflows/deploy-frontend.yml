@@ -42,4 +42,5 @@ jobs:
           repoToken: '${{ secrets.GITHUB_TOKEN }}'
           firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
           projectId: ${{ secrets.GCP_PROJECT_ID }}
+          target: reksa-k3
           channelId: live
