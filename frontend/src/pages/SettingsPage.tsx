@@ -123,6 +123,7 @@ export default function SettingsPage() {
   const [successMsg, setSuccessMsg] = useState('')
   const [errorMsg, setErrorMsg] = useState('')
   const [isEditing, setIsEditing] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const [isPairModalOpen, setIsPairModalOpen] = useState(false)
   const [devicePage, setDevicePage] = useState(1)
   const [deviceTypeFilter, setDeviceTypeFilter] = useState('ALL')
@@ -147,7 +148,6 @@ export default function SettingsPage() {
     }
   }, [totalDevicePages, devicePage])
 
-  // State untuk Registrasi Hazard Baru
   const [showAssetCreator, setShowAssetCreator] = useState(false)
   const [newHazardType, setNewHazardType] = useState('FORKLIFT')
   const [newHazardNum, setNewHazardNum] = useState('04')
@@ -165,7 +165,6 @@ export default function SettingsPage() {
   const [newHazardAreaInput, setNewHazardAreaInput] = useState('')
   const [showManualConfig, setShowManualConfig] = useState(false)
 
-  // Close 3-dot menu on click outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -176,7 +175,6 @@ export default function SettingsPage() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // Nilai terhitung dari form creator
   const targetCategory = formDeviceType === 'HAZARD_STATIONARY' ? 'STATIONARY' : 'MOBILE'
   const activeTypeCfg = HAZARD_TYPE_CONFIG[newHazardType] || { code: 'FLK', label: 'Forklift', category: targetCategory }
   const catPrefix = activeTypeCfg.category === 'MOBILE' ? 'M' : 'S'
@@ -192,7 +190,6 @@ export default function SettingsPage() {
     ? hazardsQuery.data?.items.find((h) => h.id.toUpperCase() === computedAssetId.toUpperCase())
     : null
 
-  // Otomatis sarankan nomor unit berikutnya saat memilih tipe mesin agar ID selalu unik
   useEffect(() => {
     const prefix = `${catPrefix}-${activeTypeCfg.code}-`
     const matching = hazardsQuery.data?.items.filter((h) => h.id.toUpperCase().startsWith(prefix.toUpperCase())) ?? []
@@ -205,10 +202,8 @@ export default function SettingsPage() {
     setNewHazardNum(String(nextNum).padStart(2, '0'))
   }, [newHazardType, catPrefix, activeTypeCfg.code, hazardsQuery.data?.items])
 
-  // Hazard yang saat ini terpilih
   const selectedHazard = hazardsQuery.data?.items.find((h) => h.id === targetId || h.alias === targetId)
 
-  // Otomatis sinkronisasi target saat mengganti Device Type
   useEffect(() => {
     if (isEditing) return
 
@@ -301,7 +296,7 @@ export default function SettingsPage() {
       }),
     onSuccess: (res) => {
       void queryClient.invalidateQueries({ queryKey: ['devices'] })
-      setSuccessMsg(res.message || 'Perangkat berhasil dipairing!')
+      setSuccessMsg(res.message || (language === 'id' ? 'Perangkat berhasil ditautkan!' : 'Device paired successfully!'))
       setErrorMsg('')
       setFormDeviceId('')
       setFormAssignment('')
@@ -310,7 +305,7 @@ export default function SettingsPage() {
       setTimeout(() => setSuccessMsg(''), 4000)
     },
     onError: (err: unknown) => {
-      setErrorMsg(getErrorMessage(err, 'Gagal mempairing perangkat'))
+      setErrorMsg(getErrorMessage(err, language === 'id' ? 'Gagal menautkan perangkat' : 'Failed to pair device'))
       setSuccessMsg('')
     }
   })
@@ -328,7 +323,11 @@ export default function SettingsPage() {
       setFormDeviceId(`DEV-BCN-${res.hazard.id}`)
       setFormAssignment(res.hazard.name)
       setShowAssetCreator(false)
-      setSuccessMsg(`Aset ${res.hazard.id} (${res.hazard.name}) berhasil didaftarkan dan siap dipairing!`)
+      setSuccessMsg(
+        language === 'id'
+          ? `Aset ${res.hazard.id} (${res.hazard.name}) berhasil didaftarkan dan siap ditautkan!`
+          : `Asset ${res.hazard.id} (${res.hazard.name}) registered and ready to pair!`
+      )
       setTimeout(() => setSuccessMsg(''), 4000)
     },
     onError: (err: unknown) => {
@@ -616,13 +615,24 @@ export default function SettingsPage() {
 
                     <button
                       className="button secondary"
-                      disabled={devicesQuery.isFetching}
-                      onClick={() => void devicesQuery.refetch()}
+                      disabled={isRefreshing || devicesQuery.isFetching}
+                      onClick={async () => {
+                        if (isRefreshing || devicesQuery.isFetching) return
+                        setIsRefreshing(true)
+                        const start = Date.now()
+                        try {
+                          await devicesQuery.refetch()
+                        } finally {
+                          const elapsed = Date.now() - start
+                          const remaining = Math.max(0, 650 - elapsed)
+                          setTimeout(() => setIsRefreshing(false), remaining)
+                        }
+                      }}
                       title={t.settings.refreshTooltip}
                       style={{ whiteSpace: 'nowrap' }}
                     >
-                      <RefreshCw size={16} className={devicesQuery.isFetching ? 'spin' : ''} />
-                      {devicesQuery.isFetching ? t.settings.btnRefreshing : t.settings.btnRefresh}
+                      <RefreshCw size={16} className={isRefreshing || devicesQuery.isFetching ? 'spin' : ''} />
+                      {t.settings.btnRefresh}
                     </button>
 
                     <button

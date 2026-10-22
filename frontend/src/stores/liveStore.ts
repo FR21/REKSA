@@ -24,6 +24,7 @@ interface LiveState {
   addVoiceTransmission: (item: VoiceTransmission) => void
   registerEvent: (id: string, critical?: boolean, payload?: { event?: string; data?: Record<string, unknown> } | null) => boolean
   clearNotifications: () => void
+  markAllRead: () => void
 }
 
 export const useLiveStore = create<LiveState>((set, get) => ({
@@ -101,9 +102,13 @@ export const useLiveStore = create<LiveState>((set, get) => ({
     })
     return true
   },
-  clearNotifications: () => set((state) => ({ 
+  clearNotifications: () => set({ 
     notificationCount: 0,
-    notifications: state.notifications.map(n => ({ ...n, read: true }))
+    notifications: []
+  }),
+  markAllRead: () => set((state) => ({
+    notificationCount: 0,
+    notifications: state.notifications.map((n) => ({ ...n, read: true }))
   })),
 }))
 
