@@ -84,23 +84,55 @@ export default function LiveMonitoringPage() {
 
   const critical = filtered.filter((worker) => worker.risk_level === 'CRITICAL')
 
+  const handleMarkSafeAll = async () => {
+    for (const w of critical) {
+      await markSafe.mutateAsync(w.id)
+    }
+  }
+
+  const handleTestHelmetAll = async () => {
+    for (const w of critical) {
+      await testHelmet.mutateAsync(w.id)
+    }
+  }
+
   return (
     <div className="stack-lg wide-page live-monitoring-page">
       {critical.length > 0 && (
         <div className="critical-banner">
           <div className="critical-icon">
-            <Volume2 size={24} />
+            <Volume2 size={22} />
           </div>
-          <div>
-            <strong>{t.overview.criticalActive(critical.length)}</strong>
-            <span>{critical.map((w) => `${w.name} · ${w.hazard_name} · ${w.rssi} dBm`).join(' | ')}</span>
+          <div className="critical-content">
+            <div className="critical-title">
+              <strong>{t.overview.criticalActive(critical.length)}</strong>
+            </div>
+            <div className="critical-worker-list">
+              {critical.map((w) => (
+                <a key={w.id} href={`/workers/${w.id}`} className="critical-worker-chip" style={{ textDecoration: 'none', color: 'inherit' }}>
+                  <span className="worker-name">{w.name}</span>
+                  <span className="worker-hazard">{w.hazard_name}</span>
+                  <span className="worker-rssi mono">{w.rssi} dBm</span>
+                </a>
+              ))}
+            </div>
           </div>
-          <button className="button danger" disabled={markSafe.isPending} onClick={() => markSafe.mutate(critical[0].id)}>
-            {t.live.cardMarkSafe}
-          </button>
-          <button className="button secondary" disabled={testHelmet.isPending} onClick={() => testHelmet.mutate(critical[0].id)}>
-            <BellRing size={16} /> {t.live.cardBuzzerTest}
-          </button>
+          <div className="critical-banner-actions">
+            <button
+              className="button danger"
+              disabled={markSafe.isPending}
+              onClick={() => void handleMarkSafeAll()}
+            >
+              {critical.length > 1 ? t.live.cardMarkAllSafe(critical.length) : t.live.cardMarkSafe}
+            </button>
+            <button
+              className="button secondary"
+              disabled={testHelmet.isPending}
+              onClick={() => void handleTestHelmetAll()}
+            >
+              <BellRing size={16} /> {critical.length > 1 ? t.live.cardBuzzerTestAll(critical.length) : t.live.cardBuzzerTest}
+            </button>
+          </div>
         </div>
       )}
 
@@ -201,8 +233,8 @@ export default function LiveMonitoringPage() {
                 <th>Proximity</th>
                 <th>{language === 'en' ? 'Exposure' : 'Paparan'}</th>
                 <th>{t.live.cardAir}</th>
-                <th>{language === 'en' ? 'Device' : 'Perangkat'}</th>
-                <th style={{ textAlign: 'right' }}>{t.common.action}</th>
+                <th style={{ width: '130px' }}>{language === 'en' ? 'Device' : 'Perangkat'}</th>
+                <th style={{ width: '130px' }}>{t.common.action}</th>
               </tr>
             </thead>
             <tbody>
@@ -243,16 +275,16 @@ export default function LiveMonitoringPage() {
                   <td>{worker.online ? <RiskBadge level={worker.proximity} /> : '-'}</td>
                   <td>{worker.online ? `${worker.exposure_seconds} ${language === 'en' ? 's' : 'dtk'}` : '-'}</td>
                   <td>{worker.online ? `${worker.temperature}°C · ${worker.humidity}%` : '-'}</td>
-                  <td>
+                  <td style={{ width: '130px' }}>
                     <span className={`online-label ${!worker.online ? 'offline' : ''}`}>
                       <i /> {worker.online ? t.common.online : t.common.offline}
                     </span>
                   </td>
-                  <td style={{ textAlign: 'right' }}>
+                  <td style={{ width: '130px' }}>
                     {worker.online && (
                       <button
                         className="button secondary"
-                        style={{ padding: '4px 8px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                        style={{ padding: '4px 8px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}
                         disabled={testHelmet.isPending}
                         onClick={() => testHelmet.mutate(worker.id)}
                         title={t.live.cardBuzzerTest}

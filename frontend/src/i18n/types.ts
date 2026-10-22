@@ -157,6 +157,8 @@ export interface TranslationSchema {
     cardBuzzerTest: string
     cardBuzzerTesting: string
     cardMarkSafe: string
+    cardMarkAllSafe: (count: number) => string
+    cardBuzzerTestAll: (count: number) => string
     cardViewProfile: string
     criticalAlertTitle: string
     buzzerSuccess: string

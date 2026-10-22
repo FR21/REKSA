@@ -229,8 +229,8 @@ export default function NearMissesPage() {
                     <th>{t.nearMisses.colHazard}</th>
                     <th>{t.nearMisses.colSignalDuration}</th>
                     <th>{t.nearMisses.colRisk}</th>
-                    <th>{t.nearMisses.colStatus}</th>
-                    <th style={{ textAlign: 'right' }}>{t.nearMisses.colAction}</th>
+                    <th style={{ width: '180px' }}>{t.nearMisses.colStatus}</th>
+                    <th style={{ width: '130px' }}>{t.nearMisses.colAction}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -284,8 +284,18 @@ export default function NearMissesPage() {
                                 padding: '2px 8px',
                                 borderRadius: '4px',
                                 fontWeight: 700,
-                                background: event.hazard_status === 'MOVING' ? '#fef2f2' : '#f0fdf4',
-                                color: event.hazard_status === 'MOVING' ? '#dc2626' : '#16a34a',
+                                background:
+                                  event.hazard_status === 'MOVING'
+                                    ? '#fef2f2'
+                                    : event.hazard_status === 'IDLE'
+                                    ? '#f1f5f9'
+                                    : '#f0fdf4',
+                                color:
+                                  event.hazard_status === 'MOVING'
+                                    ? '#dc2626'
+                                    : event.hazard_status === 'IDLE'
+                                    ? '#64748b'
+                                    : '#16a34a',
                               }}
                             >
                               {event.hazard_status}
@@ -331,16 +341,17 @@ export default function NearMissesPage() {
                               <p
                                 style={{
                                   margin: '4px 0 0',
-                                  fontSize: '12px',
+                                  fontSize: '11px',
                                   color: 'var(--muted)',
-                                  maxWidth: '240px',
+                                  maxWidth: '140px',
                                   overflow: 'hidden',
                                   textOverflow: 'ellipsis',
                                   whiteSpace: 'nowrap',
+                                  cursor: 'help',
                                 }}
                                 title={event.note}
                               >
-                                "{event.note}"
+                                "{event.note.length > 20 ? `${event.note.slice(0, 20)}…` : event.note}"
                               </p>
                             )}
                           </div>
@@ -362,10 +373,10 @@ export default function NearMissesPage() {
                           </span>
                         )}
                       </td>
-                      <td style={{ textAlign: 'right' }}>
+                      <td style={{ width: '130px' }}>
                         <button
                           className={`button ${event.acknowledged ? 'secondary' : 'primary'}`}
-                          style={{ padding: '4px 12px', fontSize: '12px' }}
+                          style={{ padding: '4px 12px', fontSize: '12px', whiteSpace: 'nowrap' }}
                           onClick={() => handleOpenAcknowledge(event)}
                         >
                           {event.acknowledged ? t.nearMisses.btnChangeNote : t.nearMisses.btnTakeAction}
@@ -408,9 +419,10 @@ export default function NearMissesPage() {
               background: '#ffffff',
               borderRadius: '12px',
               maxWidth: '540px',
+              maxHeight: '90vh',
+              overflowY: 'auto',
               width: '100%',
               boxShadow: '0 20px 24px -4px rgba(0, 0, 0, 0.2)',
-              overflow: 'hidden',
               border: '1px solid #cbd5e1',
             }}
           >

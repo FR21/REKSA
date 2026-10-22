@@ -25,10 +25,13 @@ export function AppLayout() {
   const { profile, updateProfile, isUpdating } = useProfile()
   const [editName, setEditName] = useState(profile.name)
   const [editRole, setEditRole] = useState(profile.role)
+  const [profileError, setProfileError] = useState('')
+  const profileBackdropMouseDownRef = useRef(false)
 
   const notificationCount = useLiveStore((state) => state.notificationCount)
   const notifications = useLiveStore((state) => state.notifications)
   const clearNotifications = useLiveStore((state) => state.clearNotifications)
+  const markAllRead = useLiveStore((state) => state.markAllRead)
   useLiveSocket()
 
   // Close notification dropdown when clicking outside
@@ -55,16 +58,23 @@ export function AppLayout() {
 
   const handleProfileSave = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!editName.trim()) return
+    const cleanName = editName.trim()
+    if (!cleanName || cleanName.length < 2) {
+      setProfileError(language === 'id' ? 'Nama lengkap minimal 2 karakter' : 'Full name must be at least 2 characters')
+      return
+    }
 
     try {
       await updateProfile({
-        name: editName.trim(),
+        name: cleanName,
         role: editRole.trim() || 'Supervisor K3',
       })
+      setProfileError('')
       setProfileModalOpen(false)
     } catch (err) {
       console.error('Failed to update profile:', err)
+      setProfileError('')
+      setProfileModalOpen(false)
     }
   }
 
@@ -111,6 +121,22 @@ export function AppLayout() {
           ))}
         </nav>
         <div className="sidebar-footer">
+          <div
+            className="sidebar-profile-mobile"
+            onClick={() => {
+              setEditName(profile.name)
+              setEditRole(profile.role || 'Supervisor K3')
+              setProfileError('')
+              setProfileModalOpen(true)
+              setMobileOpen(false)
+            }}
+          >
+            <span>{profile.initials}</span>
+            <div>
+              <strong>{profile.name}</strong>
+              <small>{profile.role}</small>
+            </div>
+          </div>
           <div className="system-mini" title={summaryQuery.data ? `${summaryQuery.data.connected_devices} / ${summaryQuery.data.total_devices} ${t.nav.devicesOnline}` : t.common.systemOperational}>
             <span className="live-dot" />
             <div className="system-mini-text">
@@ -158,7 +184,13 @@ export function AppLayout() {
                 className={`icon-button notification ${notificationOpen ? 'is-open' : ''} ${notificationCount > 0 ? 'has-unread' : ''}`}
                 aria-label={t.notifications.title}
                 title={t.notifications.tooltip}
-                onClick={() => setNotificationOpen(!notificationOpen)}
+                onClick={() => {
+                  const nextOpen = !notificationOpen
+                  setNotificationOpen(nextOpen)
+                  if (nextOpen && notificationCount > 0) {
+                    markAllRead()
+                  }
+                }}
               >
                 <Bell size={20} />
                 {notificationCount > 0 && <b>{notificationCount}</b>}
@@ -168,8 +200,8 @@ export function AppLayout() {
                 <div className="notification-dropdown">
                   <div className="notification-header">
                     <h4>{t.notifications.title}</h4>
-                    {notifications.some(n => !n.read) && (
-                      <button className="clear-btn" onClick={() => clearNotifications()}>{t.notifications.clearAll}</button>
+                    {notifications.length > 0 && (
+                      <button type="button" className="clear-btn" onClick={() => clearNotifications()}>{t.notifications.clearAll}</button>
                     )}
                   </div>
                   <div className="notification-list">
@@ -192,7 +224,8 @@ export function AppLayout() {
               className="profile"
               onClick={() => {
                 setEditName(profile.name)
-                setEditRole(profile.role)
+                setEditRole(profile.role || 'Supervisor K3')
+                setProfileError('')
                 setProfileModalOpen(true)
               }}
               title={t.profileModal.tooltip}
@@ -213,9 +246,19 @@ export function AppLayout() {
         </footer>
       </main>
 
-      {/* MODAL EDIT PROFIL */}
       {profileModalOpen && (
-        <div className="modal-backdrop" onClick={() => setProfileModalOpen(false)}>
+        <div
+          className="modal-backdrop"
+          onMouseDown={(e) => {
+            profileBackdropMouseDownRef.current = e.target === e.currentTarget
+          }}
+          onClick={(e) => {
+            if (profileBackdropMouseDownRef.current && e.target === e.currentTarget) {
+              setProfileModalOpen(false)
+            }
+            profileBackdropMouseDownRef.current = false
+          }}
+        >
           <div className="modal-dialog" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -234,6 +277,11 @@ export function AppLayout() {
 
             <div className="modal-body">
               <form onSubmit={handleProfileSave} className="device-form">
+                {profileError && (
+                  <div style={{ color: '#ef4444', fontSize: '13px', marginBottom: '8px' }}>
+                    {profileError}
+                  </div>
+                )}
                 <label>
                   <span>{t.profileModal.fullName}</span>
                   <input

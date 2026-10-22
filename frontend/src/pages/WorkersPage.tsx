@@ -202,6 +202,7 @@ export default function WorkersPage() {
     setArea(w.area || 'Gudang Utama')
     setErrorMsg('')
     setSuccessMsg('')
+    document.getElementById('register-worker-form')?.scrollIntoView({ behavior: 'smooth' })
   }
 
   const handleDeleteClick = (id: string, workerName: string) => {
@@ -287,7 +288,7 @@ export default function WorkersPage() {
       </div>
 
       <div className="device-registry-grid">
-        <div className="stack-md">
+        <div className="stack-md workforce-column">
           <Panel
             title={t.workers.panelTitle}
             subtitle={t.workers.panelSubtitle}
@@ -428,7 +429,7 @@ export default function WorkersPage() {
           </Panel>
         </div>
 
-        <div className="device-form-panel">
+        <div className="device-form-panel" id="register-worker-form">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
             <h3 style={{ margin: 0 }}>
               {isEditing ? t.workers.formEditTitle : t.workers.formRegisterTitle}

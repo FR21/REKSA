@@ -42,5 +42,13 @@ describe('live monitoring behavior', () => {
     expect(useLiveStore.getState().registerEvent('event-1', true)).toBe(true)
     expect(useLiveStore.getState().registerEvent('event-1', true)).toBe(false)
     expect(useLiveStore.getState().notificationCount).toBe(1)
+    expect(useLiveStore.getState().notifications.length).toBe(1)
+
+    useLiveStore.getState().markAllRead()
+    expect(useLiveStore.getState().notificationCount).toBe(0)
+    expect(useLiveStore.getState().notifications[0].read).toBe(true)
+
+    useLiveStore.getState().clearNotifications()
+    expect(useLiveStore.getState().notifications.length).toBe(0)
   })
 })

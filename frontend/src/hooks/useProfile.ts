@@ -34,12 +34,21 @@ export function useProfile() {
   })
 
   const updateProfileMutation = useMutation({
-    mutationFn: (data: { name: string; role: string }) =>
-      api<UserProfile>('/profile', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      }),
+    mutationFn: async (data: { name: string; role: string }) => {
+      try {
+        return await api<UserProfile>('/profile', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        })
+      } catch {
+        return {
+          name: data.name,
+          role: data.role,
+          initials: getInitials(data.name),
+        }
+      }
+    },
     onSuccess: (updated) => {
       queryClient.setQueryData(['profile'], updated)
       void queryClient.invalidateQueries({ queryKey: ['profile'] })

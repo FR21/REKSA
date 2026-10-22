@@ -9,7 +9,7 @@ import { KpiCard } from '../components/dashboard/KpiCard'
 import { Panel } from '../components/common/Panel'
 import { RiskBadge } from '../components/common/RiskBadge'
 import { ErrorState, LoadingState } from '../components/common/States'
-import { formatDate } from '../lib/utils'
+import { formatDate, levelLabel } from '../lib/utils'
 import { useProfile } from '../hooks/useProfile'
 import { useTranslation } from '../i18n'
 
@@ -31,7 +31,10 @@ export default function OverviewPage() {
   if (summary.isError || live.isError || !summary.data || !live.data) return <ErrorState retry={() => { void summary.refetch(); void live.refetch() }} />
   const activeWorkers = (workers.length ? workers : live.data.workers).filter((worker) => worker.online)
   const critical = activeWorkers.filter((worker) => worker.risk_level === 'CRITICAL')
-  const distribution = ['SAFE', 'MODERATE', 'HIGH', 'CRITICAL'].map((name) => ({ name, value: activeWorkers.filter((worker) => worker.risk_level === name).length }))
+  const distribution = ['SAFE', 'MODERATE', 'HIGH', 'CRITICAL'].map((level) => ({
+    name: levelLabel(level, language).toUpperCase(),
+    value: activeWorkers.filter((worker) => worker.risk_level === level).length,
+  }))
   const pieColors = ['#2dd4a3', '#f6c350', '#fb8c45', '#f45454']
 
   const getActivityMeta = (type: string) => {
@@ -58,33 +61,26 @@ export default function OverviewPage() {
   const formatActivityMessage = (rawMsg: string) => {
     if (language === 'id') return rawMsg
 
-    // Check direct dictionary first
     if (t.overview.activityMessages[rawMsg]) {
       return t.overview.activityMessages[rawMsg]
     }
-
     let translated = rawMsg
-    // "Uji sinyal buzzer dikirim ke helm pekerja W01"
     translated = translated.replace(
       /^Uji sinyal buzzer dikirim ke helm pekerja ([\w-]+)/i,
       'Buzzer test signal sent to worker $1 helmet'
     )
-    // "Sinyal buzzer dikirim ke pekerja W01 · Reason"
     translated = translated.replace(
       /^Sinyal buzzer dikirim ke pekerja ([\w-]+)/i,
       'Buzzer signal dispatched to worker $1'
     )
-    // "Andi Pratama (W01) mendekati Forklift Alpha · RSSI -39.0 dBm"
     translated = translated.replace(
       / mendekati /g,
       ' approached '
     )
-    // "Instruksi suara ke ..."
     translated = translated.replace(
       /^Instruksi suara ke /i,
       'Voice instruction to '
     )
-    // "Pekerja ditandai aman oleh ..."
     translated = translated.replace(
       /^Pekerja ditandai aman oleh (.*)/i,
       'Worker marked safe by $1'
@@ -96,20 +92,30 @@ export default function OverviewPage() {
   return <div className="stack-xl wide-page overview-page">
     <div className="page-intro">
       <div>
-        <p className="eyebrow">{t.overview.eyebrow}</p>
         <h2>{t.overview.welcome(firstName)}</h2>
         <span>{t.overview.subtitle}</span>
       </div>
-      <div className="overview-health"><div><strong>{t.common.systemOperational}</strong><span>{t.common.lastSync}</span></div></div>
     </div>
     {critical.length > 0 && (
       <div className="critical-banner">
-        <div className="critical-icon"><Siren size={24} /></div>
-        <div>
-          <strong>{t.overview.criticalActive(critical.length)}</strong>
-          <span>{critical.map((worker) => t.overview.nearHazard(worker.name, worker.hazard_name)).join(' · ')}</span>
+        <div className="critical-icon"><Siren size={22} /></div>
+        <div className="critical-content">
+          <div className="critical-title">
+            <strong>{t.overview.criticalActive(critical.length)}</strong>
+          </div>
+          <div className="critical-worker-list">
+            {critical.map((worker) => (
+              <div key={worker.id} className="critical-worker-chip">
+                <span className="worker-name">{worker.name}</span>
+                <span className="worker-hazard">{worker.hazard_name}</span>
+                <span className="worker-rssi mono">{worker.rssi} dBm</span>
+              </div>
+            ))}
+          </div>
         </div>
-        <a href="/live">{t.overview.openLive}</a>
+        <div className="critical-banner-actions">
+          <a className="button danger" href="/live" style={{ textDecoration: 'none' }}>{t.overview.openLive}</a>
+        </div>
       </div>
     )}
     <div className="kpi-grid">
@@ -123,7 +129,7 @@ export default function OverviewPage() {
       <KpiCard label={t.overview.kpiWarningLatency} value={summary.data.average_warning_latency} unit="ms" detail={t.overview.kpiWarningLatencyDetail} icon={Timer} tone="green" />
     </div>
     <div className="overview-grid main-charts">
-      <Panel title={t.overview.panelWorkerRisk} subtitle={t.overview.panelWorkerRiskSub} action={<a className="text-link" href="/live">{t.common.viewAll} →</a>}>
+      <Panel title={t.overview.panelWorkerRisk} subtitle={t.overview.panelWorkerRiskSub} className="worker-risk-panel" action={<a className="text-link" href="/live">{t.common.viewAll} →</a>}>
         <div className="worker-risk-list">
           {activeWorkers.length === 0 ? (
             <div className="empty-state-card" style={{ padding: '48px 24px', textAlign: 'center', color: 'var(--muted)', fontSize: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
@@ -245,7 +251,7 @@ export default function OverviewPage() {
           </BarChart>
         </ResponsiveContainer>
       </Panel>
-      <Panel title={t.overview.panelActivity} subtitle={t.overview.panelActivitySub} action={<a className="text-link" href="/near-misses">{t.common.viewAll} →</a>}>
+      <Panel title={t.overview.panelActivity} subtitle={t.overview.panelActivitySub} className="activity-panel" action={<a className="text-link" href="/near-misses">{t.common.viewAll} →</a>}>
         <div className="activity-list">
           {(activities.data?.items ?? []).length === 0 ? (
             <div style={{ padding: '32px 0', textAlign: 'center', color: 'var(--muted)', fontSize: '13px' }}>
