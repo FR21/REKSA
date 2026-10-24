@@ -1,6 +1,6 @@
 # REKSA (Radar Evaluasi K3 dan Sensor Ancaman Kerja)
 
-Sistem keselamatan kerja industri berbasis IoT Smart Helmet dan web dashboard real-time. REKSA mendeteksi kedekatan pekerja terhadap alat berat (forklift, AGV, crane) dan mesin stasioner (press, CNC, laser cutter) menggunakan BLE RSSI, memantau telemetri fisik pekerja (jatuh bebas, benturan, suhu/kelembapan, kualitas udara), menyediakan tombol darurat Push-To-Talk (PTT) dengan transkripsi suara otomatis, serta mencatat insiden *near-miss* ke database untuk audit K3.
+Sistem keselamatan kerja industri berbasis IoT Smart Helmet dan web dashboard real-time. REKSA mendeteksi kedekatan pekerja terhadap alat berat (forklift, AGV, crane) dan mesin stasioner (press, CNC, laser cutter) menggunakan BLE RSSI, memantau telemetri fisik pekerja (jatuh bebas, benturan, suhu/kelembapan, kualitas udara), menyediakan saklar kontrol daya ON/OFF hemat baterai serta pengenalan perintah suara darurat (Voice NLU), serta mencatat insiden *near-miss* ke database untuk audit K3.
 
 > **Prinsip Keselamatan Utama:** Alarm fisik (buzzer & vibrasi) di helm ESP32 beroperasi mandiri (*autonomous* pada tingkat firmware). Putusnya koneksi internet atau cloud server tidak mematikan fungsi perlindungan jarak aman di helm.
 
@@ -8,19 +8,28 @@ Sistem keselamatan kerja industri berbasis IoT Smart Helmet dan web dashboard re
 
 ## Fitur Utama
 
-- **Deteksi Kedekatan Otomatis (Proximity Alert):** Pemindaian BLE beacon mesin bergerak (Forklift/AGV) dan stasioner (Press/Laser) dengan kalkulasi rata-rata bergerak RSSI untuk memicu buzzer dan vibrasi helm seketika.
+- **Deteksi Kedekatan Otomatis & 5 Tingkat Risiko K3:**
+  - Pemindaian BLE beacon mesin bergerak (Forklift/AGV) dan stasioner (Press/Laser) dengan kalkulasi rata-rata bergerak RSSI untuk memicu buzzer dan vibrasi helm seketika.
+  - 5 Status Risiko K3 Terstandarisasi: **Aman / Safe**, **Moderat / Moderate**, **Tinggi / High**, **Kritis / Critical**, dan **Pemulihan / Recovery**.
+- **Mode Pemulihan (Recovery Mode):**
+  - Transisi status saat pekerja keluar dari zona bahaya atau ditandai aman oleh pengawas. Kondisi aman dipertahankan, alarm lokal helm dihentikan seketika, status insiden ditutup, dan durasi paparan dihitung otomatis untuk audit K3.
+- **Deteksi & Tampilan Perangkat Offline (Standby Mode):**
+  - Saat helm tidak terhubung atau dimatikan via switch daya ON/OFF, dashboard detail pekerja otomatis beralih ke state standby/offline khusus (AI Advisory ditangguhkan, indikator anomali beralih ke standby tanpa metrik semu, dan panduan tindakan pengawas menampilkan verifikasi APD & baterai).
 - **Telemetri Sensor K3 (Smart Helmet Node):**
   - IMU MPU-6050: Deteksi jatuh bebas (*free-fall*) dan benturan kepala (*high-G impact*).
   - DHT22: Pemantauan heat stress (suhu tinggi & kelembapan ekstrem).
   - MQ-135: Deteksi gas berbahaya / kualitas udara buruk di area kerja.
-- **Push-To-Talk (PTT) & Voice NLU:** Mikrofon digital I2S (INMP441) mengirim stream audio PCM 16-bit 8 kHz ke server via MQTT saat tombol ditekan. Server mentranskripsi suara melalui Wit.ai dan mengidentifikasi intent darurat (evakuasi, SOS medis, stop mesin, laporan bahaya) secara otomatis.
+- **Voice NLU:** Saklar kontrol daya fisik mengaktifkan/menonaktifkan operasional helm seketika (*standby mode* hemat energi). Mikrofon digital I2S (INMP441) menangkap audio transmisi suara darurat, ditranskripsi oleh Wit.ai untuk mengenali intent darurat (evakuasi, SOS medis, stop mesin, laporan bahaya) secara otomatis.
 - **Web Dashboard Operasional:**
   - Peta live monitoring visual dengan grid posisi pekerja dan hazard.
   - Manajemen insiden near-miss dengan form investigasi supervisor & verifikasi CAPA (*Corrective and Preventive Action*).
   - Registrasi perangkat IoT (Smart Helmet, Mobile Hazard, Stationary Hazard, Node Lingkungan).
-  - Audio playback rekaman suara PTT langsung dari dashboard.
+  - Audio playback rekaman transmisi suara darurat langsung dari dashboard.
   - Dukungan dwibahasa penuh (Bahasa Indonesia & English) via toggle di header.
-- **Predictive Near-Miss Advisory (AI Service):** Model machine learning non-blocking berbasis scikit-learn untuk memprediksi probabilitas near-miss 10–30 detik ke depan berdasarkan jendela telemetri.
+- **Predictive Near-Miss Advisory (AI Service):** Tiga engine machine learning (FastAPI + scikit-learn) di port `8100`:
+  1. *Near-Miss Risk Forecaster*: Prediksi pendekatan tidak aman 3–5 detik ke depan dari jendela temporal BLE-RSSI + IMU.
+  2. *Operational Anomaly Detector (Isolation Forest)*: Deteksi anomali pola getaran dan sinyal telemetri sensor.
+  3. *AI Priority Engine*: Penentuan prioritas investigasi antrean insiden K3 supervisor.
 
 ---
 
@@ -30,7 +39,7 @@ Sistem keselamatan kerja industri berbasis IoT Smart Helmet dan web dashboard re
        +---------------------------------------------+
        |           ESP32 Smart Helmet Node           |
        |  [MPU-6050] [DHT22] [MQ-135] [INMP441 Mic]  |
-       |      [Buzzer] [Vibration] [PTT Button]      |
+       |   [Buzzer] [Vibration] [Power Switch ON/OFF]|
        +----------------------+----------------------+
                               |
                (MQTT / MQTTS Port 1883 / 8883)
@@ -63,7 +72,7 @@ Sistem keselamatan kerja industri berbasis IoT Smart Helmet dan web dashboard re
 ```text
 reksa/
 ├── arduino/                   # Firmware ESP32
-│   ├── helm_v1/               # Smart helmet firmware (sensor, BLE scan, audio PTT, alarm)
+│   ├── helm_v1/               # Smart helmet firmware (sensor, BLE scan, audio stream, alarm)
 │   ├── hazard_forklift_f01/   # Firmware beacon BLE untuk forklift (alat berat bergerak)
 │   └── hazard_stationary_l01/ # Firmware beacon BLE untuk mesin stasioner (press, laser)
 ├── backend/                   # REST API & Layanan Inti (FastAPI)
@@ -80,11 +89,11 @@ reksa/
 ├── AI/                        # Layanan Advisory Prediktif (FastAPI + scikit-learn)
 │   ├── src/reksa_ai/          # Pipeline fitur, inferensi model, dan service HTTP
 │   └── models/                # Bobot model terlatih (.joblib)
-├── bridge/                    # Gateway lokal MQTT ke GCP Cloud Pub/Sub (opsional)
+├── bridge/                    # Gateway MQTT ke GCP Cloud Pub/Sub (Compute Engine VM / Docker)
 ├── deploy/                    # Skrip pengujian & deployment (GCP, HiveMQ)
 ├── docs/                      # Dokumentasi teknis lengkap
 │   ├── architecture.md        # Arsitektur detail & fail-safe design
-│   ├── deployment.md          # Panduan deployment (Docker, Cloud Run, Firebase)
+│   ├── deployment.md          # Panduan deployment (GCE VM, Cloud Run, Firebase, Docker)
 │   ├── mqtt-topics.md         # Spesifikasi kontrak topik MQTT & skema payload
 │   └── sensor_output.md       # Pinout ESP32, log serial debugging, & threshold K3
 ├── docker-compose.yml         # Konfigurasi container lokal (postgres, mosquitto, ai, backend, frontend)
@@ -185,7 +194,7 @@ Seluruh variabel lingkungan telah dikumpulkan dan didokumentasikan pada [`.env.e
 | `MQTT_PORT` | Port broker MQTT | `1883` (non-TLS) / `8883` (TLS) |
 | `MQTT_TLS` | Aktifkan TLS untuk koneksi broker cloud | `false` / `true` |
 | `AI_SERVICE_URL` | Endpoint HTTP layanan inferensi AI | `http://localhost:8100` |
-| `WIT_AI_TOKEN` | Token API server Wit.ai untuk NLU suara PTT | `Bearer <YOUR_TOKEN>` |
+| `WIT_AI_TOKEN` | Token API server Wit.ai untuk NLU perintah suara darurat | `Bearer <YOUR_TOKEN>` |
 | `VITE_API_URL` | Base URL REST API untuk dashboard frontend | `http://localhost:8000/api/v1` |
 | `VITE_WS_URL` | URL WebSocket real-time untuk dashboard | `ws://localhost:8000/ws/live` |
 
@@ -220,9 +229,10 @@ make lint
 ```
 
 Pengujian individual:
-- **Backend Tests:** `pytest` (43 passed)
+- **AI Service Tests:** `pytest AI/tests` (7 passed)
+- **Backend Tests:** `pytest backend/tests` (40 passed)
 - **Backend Linting:** `ruff check .` (Clean, PEP8 compliant)
-- **Frontend Tests:** `npm test` (5 passed)
+- **Frontend Tests:** `npm test` (6 passed)
 - **Frontend Linting & Typecheck:** `npm run lint && npm run build` (Clean, 0 errors)
 
 ---

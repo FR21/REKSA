@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { BellRing, Grid2X2, HardHat, List, Search, SlidersHorizontal, Volume2 } from 'lucide-react'
+import { BellRing, CheckCircle2, Grid2X2, HardHat, List, Search, SlidersHorizontal, Volume2 } from 'lucide-react'
 import type { Worker } from '../types'
 import { api } from '../services/api'
 import { useLiveStore } from '../stores/liveStore'
@@ -19,6 +19,7 @@ export default function LiveMonitoringPage() {
   const [device, setDevice] = useState('ALL')
   const [view, setView] = useState<'grid' | 'table'>('grid')
   const [page, setPage] = useState(1)
+  const [recoveryToast, setRecoveryToast] = useState<string | null>(null)
   const pageSize = 6
   const queryClient = useQueryClient()
 
@@ -41,6 +42,12 @@ export default function LiveMonitoringPage() {
     mutationFn: (workerId: string) => api<Worker>(`/workers/${workerId}/mark-safe`, { method: 'POST' }),
     onSuccess: (worker) => {
       updateWorker(worker)
+      setRecoveryToast(
+        language === 'en'
+          ? `Worker ${worker.name} (${worker.id}) entered Recovery Mode: Safe zone held · Alarm stopped · Event closed & duration recorded.`
+          : `Pekerja ${worker.name} (${worker.id}) masuk Mode Pemulihan: Zona aman bertahan · Alarm dihentikan · Event ditutup & durasi dihitung.`
+      )
+      setTimeout(() => setRecoveryToast(null), 6000)
       void queryClient.invalidateQueries()
     },
   })
@@ -98,6 +105,12 @@ export default function LiveMonitoringPage() {
 
   return (
     <div className="stack-lg wide-page live-monitoring-page">
+      {recoveryToast && (
+        <div className="recovery-actions" style={{ fontSize: '13px', padding: '12px 16px', borderRadius: '10px', boxShadow: '0 2px 8px rgba(2, 132, 199, 0.15)' }}>
+          <CheckCircle2 size={20} className="recovery-dot" />
+          <span>{recoveryToast}</span>
+        </div>
+      )}
       {critical.length > 0 && (
         <div className="critical-banner">
           <div className="critical-icon">

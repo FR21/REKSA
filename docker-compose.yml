@@ -32,6 +32,7 @@ services:
     environment:
       REKSA_FORECAST_MODEL: /app/models/near_miss_forecaster.joblib
       REKSA_PRIORITY_MODEL: /app/models/priority_engine.joblib
+      REKSA_ANOMALY_MODEL: /app/models/operational_anomaly_detector.joblib
     volumes:
       - ./AI/models:/app/models:ro
     ports:

@@ -4,11 +4,7 @@ __pycache__/
 .venv/
 data/raw/*
 data/processed/*
+data/synthetic/*.csv
+data/synthetic/*.jsonl
 !data/raw/.gitkeep
 !data/processed/.gitkeep
-models/*.joblib
-models/*.json
-models/**/*.joblib
-models/**/*.json
-models/notebook/*.md
-!models/.gitkeep

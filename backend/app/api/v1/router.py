@@ -22,7 +22,7 @@ warning_service = WarningService()
 SYSTEM_SETTINGS: dict[str, Any] = {
     "mobile_moderate_rssi": -86, "mobile_high_rssi": -78, "mobile_critical_rssi": -70,
     "stationary_moderate_rssi": -82, "stationary_high_rssi": -74, "stationary_critical_rssi": -65,
-    "moderate_rssi": -70, "high_rssi": -60, "critical_rssi": -45,
+    "moderate_rssi": -86, "high_rssi": -78, "critical_rssi": -70,
     "critical_exposure_duration": 5, "device_offline_timeout": 30,
     "warning_cooldown": 30, "temperature_warning_threshold": 35,
     "humidity_warning_threshold": 80,
@@ -454,32 +454,71 @@ async def worker_detail(worker_id: str) -> dict[str, Any]:
 @router.post("/workers/{worker_id}/mark-safe", tags=["Workers"])
 async def mark_worker_safe(worker_id: str) -> dict[str, Any]:
     worker = find(simulation_engine.state["workers"], worker_id)
+    now = datetime.now(UTC)
+    now_str = now.isoformat()
+
+    prev_level = worker.get("risk_level", "SAFE")
+    prev_score = worker.get("risk_score", 10)
+    prev_hazard_id = worker.get("closest_hazard")
+    prev_hazard_name = worker.get("hazard_name")
+
+    if prev_level in ("CRITICAL", "HIGH") or prev_score >= 50 or (prev_hazard_id and prev_hazard_id != "-"):
+        nm_event = {
+            "id": f"NM-{now.strftime('%H%M%S')}-{worker_id}",
+            "timestamp": now_str,
+            "worker_id": worker_id,
+            "worker_name": worker.get("name", worker_id),
+            "hazard_id": prev_hazard_id or "HAZARD-01",
+            "hazard_name": prev_hazard_name if prev_hazard_name and prev_hazard_name != "-" else "Area Bahaya Terdekat",
+            "hazard_type": worker.get("hazard_type") if worker.get("hazard_type") != "-" else "FORKLIFT",
+            "proximity": worker.get("proximity") if worker.get("proximity") in ("CRITICAL", "HIGH") else "CRITICAL",
+            "rssi": worker.get("rssi", -68) if worker.get("rssi", -100) > -100 else -68,
+            "duration": max(5.0, float(worker.get("exposure_seconds", 5.0))),
+            "hazard_status": worker.get("hazard_status") if worker.get("hazard_status") != "INACTIVE" else "MOVING",
+            "risk_score": max(prev_score, 78),
+            "risk_level": prev_level if prev_level in ("CRITICAL", "HIGH") else "CRITICAL",
+            "warning_status": "DELIVERED",
+            "acknowledged": True,
+            "acknowledged_by": "Supervisor Lapangan",
+            "acknowledged_at": now_str,
+            "note": "Pekerja telah dievakuasi ke zona aman dan diverifikasi oleh supervisor di lapangan.",
+        }
+        simulation_engine.state.setdefault("near_misses", []).insert(0, nm_event)
+        await db_service.persist_near_miss(nm_event)
+        await websocket_manager.broadcast("near_miss.created", nm_event)
+
     worker.update({
-        "closest_hazard": None,
-        "hazard_name": "-",
-        "hazard_type": "-",
-        "hazard_status": "INACTIVE",
-        "rssi": -100,
-        "smoothed_rssi": -100,
-        "proximity": "SAFE",
-        "risk_level": "SAFE",
-        "risk_score": 10,
+        "closest_hazard": prev_hazard_id,
+        "hazard_name": prev_hazard_name if prev_hazard_name and prev_hazard_name != "-" else "Zona Aman",
+        "hazard_type": worker.get("hazard_type", "-"),
+        "hazard_status": "IDLE",
+        "rssi": -88,
+        "smoothed_rssi": -88,
+        "proximity": "RECOVERY",
+        "risk_level": "RECOVERY",
+        "risk_score": 18,
         "exposure_seconds": 0,
         "impact": False,
         "fall_detected": False,
         "impact_g": 1.0,
-        "mq135_raw": 0,
+        "mq135_raw": 420,
         "air_quality_level": "NORMAL",
         "gas_alert": False,
-        "dominant_factor": "None",
-        "recommended_action": "Kondisi telah ditandai aman oleh supervisor.",
-        "last_update": datetime.now(UTC).isoformat(),
+        "dominant_factor": "Mode Pemulihan (Recovery)",
+        "recommended_action": "Pekerja dalam Mode Pemulihan (Recovery). Kondisi aman bertahan, alarm dihentikan, event ditutup dan durasi telah dihitung.",
+        "recovery": {
+            "active": True,
+            "alarm_silenced": True,
+            "event_closed": True,
+            "note": "Kondisi aman bertahan setelah keluar zona bahaya. Alarm dihentikan, event ditutup, dan durasi dihitung.",
+        },
+        "last_update": now_str,
     })
     simulation_engine.state.setdefault("activities", []).insert(0, {
-        "id": f"act-safe-{worker_id}-{int(datetime.now(UTC).timestamp())}",
+        "id": f"act-safe-{worker_id}-{int(now.timestamp())}",
         "type": "SAFE",
         "message": f"Pekerja {worker['name']} ({worker_id}) ditandai aman oleh supervisor",
-        "timestamp": datetime.now(UTC).isoformat(),
+        "timestamp": now_str,
     })
     sync_today_history()
     await websocket_manager.broadcast("worker.updated", worker)

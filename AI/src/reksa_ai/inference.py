@@ -7,13 +7,32 @@ from reksa_ai.artifacts import load_artifact
 from reksa_ai.baselines import ForecastRuleBaseline, PriorityRuleBaseline
 from reksa_ai.contracts import (
     AdvisoryLevel,
+    AnomalyResponse,
     ForecastRequest,
     ForecastResponse,
     PriorityEvent,
     PriorityResponse,
     SupervisorPriority,
+    TemporalFeatures,
 )
 from reksa_ai.features import PRIORITY_FEATURES, extract_temporal_features
+
+ANOMALY_FEATURES = [
+    "rssi_mean",
+    "rssi_std",
+    "rssi_slope",
+    "packet_loss_ratio",
+    "acceleration_mean_g",
+    "acceleration_max_g",
+    "acceleration_energy",
+    "gyroscope_mean_dps",
+    "gyroscope_max_dps",
+    "gyroscope_energy",
+    "orientation_change_deg",
+    "warning_duration_seconds",
+    "danger_duration_seconds",
+    "state_transition_count",
+]
 
 
 def _dataframe(row: dict[str, Any], columns: list[str]) -> Any:
@@ -70,8 +89,14 @@ def _priority_explanation(event: PriorityEvent, reasons: list[str]) -> str:
 
 
 class NearMissRiskForecaster:
-    def __init__(self, artifact_path: Path | None = None) -> None:
+    def __init__(
+        self,
+        artifact_path: Path | None = None,
+        *,
+        anomaly_detector: OperationalAnomalyDetector | None = None,
+    ) -> None:
         self.baseline = ForecastRuleBaseline()
+        self.anomaly_detector = anomaly_detector
         self.bundle: dict[str, Any] | None = None
         self.load_error: str | None = None
         if artifact_path and artifact_path.exists():
@@ -86,6 +111,11 @@ class NearMissRiskForecaster:
     def predict(self, request: ForecastRequest) -> ForecastResponse:
         features = extract_temporal_features(request)
         baseline_result = self.baseline.score(features)
+        anomaly_result = (
+            self.anomaly_detector.predict(request=request, features=features)
+            if self.anomaly_detector
+            else None
+        )
 
         if self.bundle is None:
             source = "RULE_BASED_BASELINE" if self.load_error is None else "RULE_BASED_LOAD_FALLBACK"
@@ -122,6 +152,7 @@ class NearMissRiskForecaster:
                 if source.startswith("RULE_BASED")
                 else "UNCALIBRATED_MODEL_SCORE"
             ),
+            anomaly=anomaly_result,
         )
 
 
@@ -169,6 +200,58 @@ class PriorityEngine:
             reason_codes=baseline_result.reason_codes[:6],
             explanation=_priority_explanation(event, baseline_result.reason_codes),
             recommended_action=_priority_recommendation(priority),
+            inference_source=source,
+            model_version=version,
+        )
+
+
+class OperationalAnomalyDetector:
+    def __init__(self, artifact_path: Path | None = None) -> None:
+        self.bundle: dict[str, Any] | None = None
+        self.load_error: str | None = None
+        if artifact_path and artifact_path.exists():
+            try:
+                self.bundle = load_artifact(artifact_path, "operational_anomaly_detector")
+            except Exception as exc:
+                self.bundle = None
+                self.load_error = str(exc)
+
+    def predict(
+        self,
+        request: ForecastRequest | None = None,
+        features: TemporalFeatures | None = None,
+    ) -> AnomalyResponse:
+        if features is None:
+            if request is None:
+                raise ValueError("request or features must be provided")
+            features = extract_temporal_features(request)
+
+        window_id = request.window_id if request else None
+        worker_id = request.worker_id if request else None
+
+        if self.bundle is None:
+            is_anomaly = features.packet_loss_ratio > 0.4 or features.acceleration_max_g > 4.0
+            score = -0.1 if is_anomaly else 0.1
+            source = "RULE_BASED_BASELINE" if self.load_error is None else "RULE_BASED_LOAD_FALLBACK"
+            version = "anomaly-rule-v1"
+        else:
+            raw = features.model_dump(mode="json")
+            columns = self.bundle.get("features", ANOMALY_FEATURES)
+            frame = _dataframe(raw, columns)
+            estimator = self.bundle["estimator"]
+            score = float(estimator.decision_function(frame)[0])
+            pred = int(estimator.predict(frame)[0])
+            is_anomaly = pred == -1
+            source = "TRAINED_MODEL"
+            version = self.bundle.get("model_version", "anomaly-v1")
+
+        return AnomalyResponse(
+            window_id=window_id,
+            worker_id=worker_id,
+            decision_score=round(score, 4),
+            is_anomaly=is_anomaly,
+            status="ANOMALY_DETECTED" if is_anomaly else "NORMAL",
+            alert_flag="FLAG_ANOMALOUS_TELEMETRY" if is_anomaly else "FLAG_NORMAL",
             inference_source=source,
             model_version=version,
         )

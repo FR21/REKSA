@@ -331,7 +331,7 @@ export default function SettingsPage() {
       setTimeout(() => setSuccessMsg(''), 4000)
     },
     onError: (err: unknown) => {
-      setErrorMsg(getErrorMessage(err, 'Gagal mendaftarkan hazard baru'))
+      setErrorMsg(getErrorMessage(err, language === 'id' ? 'Gagal mendaftarkan hazard baru' : 'Failed to register new hazard'))
     }
   })
 
@@ -342,12 +342,12 @@ export default function SettingsPage() {
       }),
     onSuccess: (res) => {
       void queryClient.invalidateQueries({ queryKey: ['devices'] })
-      setSuccessMsg(res.message || 'Perangkat berhasil dihapus.')
+      setSuccessMsg(res.message || (language === 'id' ? 'Perangkat berhasil dihapus.' : 'Device deleted successfully.'))
       setErrorMsg('')
       setTimeout(() => setSuccessMsg(''), 3000)
     },
     onError: (err: unknown) => {
-      setErrorMsg(getErrorMessage(err, 'Gagal menghapus perangkat'))
+      setErrorMsg(getErrorMessage(err, language === 'id' ? 'Gagal menghapus perangkat' : 'Failed to delete device'))
       setSuccessMsg('')
     }
   })
@@ -355,7 +355,7 @@ export default function SettingsPage() {
   const handlePairSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!formDeviceId || !targetId) {
-      setErrorMsg('Device ID dan target perangkat wajib diisi.')
+      setErrorMsg(language === 'id' ? 'Device ID dan target perangkat wajib diisi.' : 'Device ID and assignment target are required.')
       return
     }
     pairMutation.mutate({
@@ -369,7 +369,7 @@ export default function SettingsPage() {
   const handleCreateHazardSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!newHazardName.trim()) {
-      setErrorMsg('Nama hazard wajib diisi (misal: Forklift Delta).')
+      setErrorMsg(language === 'id' ? 'Nama hazard wajib diisi (misal: Forklift Delta).' : 'Hazard name is required (e.g., Forklift Delta).')
       return
     }
     createHazardMutation.mutate({
@@ -1057,16 +1057,16 @@ export default function SettingsPage() {
                       {/* PREVIEW STANDAR REKSA */}
                       <div className="asset-preview-card">
                         <div>
-                          <small style={{ color: 'var(--muted)' }}>Asset ID:</small>
+                          <small style={{ color: 'var(--muted)' }}>{language === 'id' ? 'ID Aset:' : 'Asset ID:'}</small>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                             <strong className="mono">{computedAssetId}</strong>
                             {isDuplicateHazardId ? (
                               <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-                                <AlertTriangle size={12} /> ID Terpakai ({duplicateHazard?.name})
+                                <AlertTriangle size={12} /> {language === 'id' ? 'ID Terpakai' : 'ID in use'} ({duplicateHazard?.name})
                               </span>
                             ) : (
                               <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-                                <CheckCircle2 size={12} /> ID Unik
+                                <CheckCircle2 size={12} /> {language === 'id' ? 'ID Unik' : 'Unique ID'}
                               </span>
                             )}
                           </div>

@@ -1,4 +1,18 @@
-export type RiskLevel = 'SAFE' | 'MODERATE' | 'HIGH' | 'CRITICAL'
+export type RiskLevel = 'SAFE' | 'MODERATE' | 'HIGH' | 'CRITICAL' | 'RECOVERY'
+
+export interface OperationalAnomaly {
+  engine: string
+  window_id?: string
+  worker_id?: string
+  decision_score: number
+  is_anomaly: boolean
+  status: string
+  alert_flag: string
+  inference_source: string
+  model_version: string
+  advisory_only?: boolean
+  generated_at?: string
+}
 
 export interface AIAdvisory {
   status: 'AWAITING_LIVE_TELEMETRY' | 'AWAITING_HAZARD' | 'COLLECTING_WINDOW' | 'READY' | 'UNAVAILABLE'
@@ -14,7 +28,9 @@ export interface AIAdvisory {
   required_samples?: number
   generated_at: string
   advisory_only: true
+  anomaly?: OperationalAnomaly
 }
+
 
 export interface Worker {
   id: string
@@ -49,6 +65,14 @@ export interface Worker {
   dominant_factor: string
   recommended_action: string
   ai_advisory: AIAdvisory
+  recovery?: {
+    active: boolean
+    alarm_silenced?: boolean
+    event_closed?: boolean
+    safe_duration_seconds?: number
+    note?: string
+    closed_event_id?: string
+  }
 }
 
 export interface Hazard {

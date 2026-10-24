@@ -14,9 +14,9 @@ Mikrokontroler yang digunakan adalah **ESP32** (Xtensa dual-core 32-bit).
 | **DHT22** (AM2302) | 1-Wire Digital (GPIO 18) | Suhu ($T$) dan Kelembapan Relatif ($RH$) | $-40 \dots 80^\circ\text{C}$ ($\pm 0.5^\circ\text{C}$)<br>$0 \dots 100\%$ ($\pm 2\%$) | 2500 ms (2.5 detik) |
 | **MQ-135** | ADC Analog (GPIO 34) | Kualitas udara / konsentrasi gas berbahaya | $0 - 4095$ (ADC 12-bit raw) | 250 ms |
 | **NimBLE Scanner** | On-chip 2.4 GHz BLE | Beacon bahaya mesin (Mobile & Stationary), RSSI mentah & *smoothed* | $-30 \dots -100\text{ dBm}$ | Scan window 1 detik |
-| **INMP441** | I2S Digital (WS: 32, SCK: 33, SD: 35) | Audio suara saat tombol PTT ditekan | Raw PCM 16-bit Mono 8 kHz | Saat tombol PTT aktif |
-| **Tombol Kontrol** | Digital Input Interrupt | GPIO 25: Power/Standby Helm<br>GPIO 26: Push-To-Talk (PTT) | Active-Low (Debounced) | Event-driven |
-| **Aktuator Alarm** | Digital Output | GPIO 19: Buzzer Aktif<br>GPIO 23: Vibration Motor<br>GPIO 2: LED Status Sistem<br>GPIO 4: LED Indikator PTT | Active-Low (Buzzer)<br>Active-High (Vibration) | Response < 20 ms |
+| **INMP441** | I2S Digital (WS: 32, SCK: 33, SD: 35) | Audio transmisi suara darurat | Raw PCM 16-bit Mono 8 kHz | Saat transmisi audio aktif |
+| **Saklar Kontrol** | Digital Input Interrupt | GPIO 25: Saklar Daya ON/OFF (Power/Standby)<br>GPIO 26: Saklar Audio Darurat | Active-Low (Debounced) | Event-driven |
+| **Aktuator Alarm** | Digital Output | GPIO 19: Buzzer Aktif<br>GPIO 23: Vibration Motor<br>GPIO 2: LED Status Sistem (Biru)<br>GPIO 4: LED Indikator Audio | Active-Low (Buzzer)<br>Active-High (Vibration) | Response < 20 ms |
 
 ---
 

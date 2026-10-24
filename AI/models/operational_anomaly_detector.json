@@ -1,0 +1,30 @@
+{
+  "kind": "operational_anomaly_detector",
+  "model_version": "anomaly-enterprise-v2",
+  "algorithm": "Isolation Forest",
+  "contamination": 0.01,
+  "n_estimators": 200,
+  "features": [
+    "rssi_mean",
+    "rssi_std",
+    "rssi_slope",
+    "packet_loss_ratio",
+    "acceleration_mean_g",
+    "acceleration_max_g",
+    "acceleration_energy",
+    "gyroscope_mean_dps",
+    "gyroscope_max_dps",
+    "gyroscope_energy",
+    "orientation_change_deg",
+    "warning_duration_seconds",
+    "danger_duration_seconds",
+    "state_transition_count"
+  ],
+  "metrics": {
+    "outlier_rate": 0.01,
+    "deployment_recommended": true
+  },
+  "dataset_rows": 14000,
+  "trained_at": "2026-10-22T15:35:00.000000+00:00",
+  "artifact_path": "operational_anomaly_detector.joblib"
+}

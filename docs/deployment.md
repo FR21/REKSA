@@ -1,156 +1,328 @@
 # Panduan Deployment REKSA
 
-Panduan konfigurasi dan deployment REKSA pada lingkungan **Lokal (Docker)**, **Broker HiveMQ Cloud (TLS)**, dan **Cloud Production (GCP & Firebase)**.
+Panduan komprehensif arsitektur dan tata cara deployment REKSA pada lingkungan **Cloud Production (Compute Engine VM, Google Cloud Run, HiveMQ Cloud, & Firebase)**, **GitHub Actions CI/CD**, serta **Lokal (Docker Compose)**.
 
 ```text
-               +-------------------+
-               | ESP32 IoT Helmets |
-               +---------+---------+
-                         |
-           (MQTTS TLS / Port 8883)
-                         v
-               +-------------------+
-               |   HiveMQ Cloud    |
-               +---------+---------+
-                         |
-           +-------------+-------------+
-           | (Bridge / Outbox Pattern) |
-           +-------------+-------------+
-                         v
-               +-------------------+
-               |  GCP Cloud Pub/Sub|
-               +---------+---------+
-                         |
-         +---------------+---------------+
-         |                               |
-         v                               v
-+-----------------+             +-----------------+
-| Cloud Run (API) | <---------> | Cloud Run (AI)  |
-+--------+--------+             +-----------------+
-         |
-         v
-+-----------------+
-| Firebase Hosting| (Frontend React Dashboard)
-+-----------------+
+               +-----------------------------+
+               |      ESP32 Smart Helmet     |
+               | (Sensor IMU, Gas, Suhu, Mic)|
+               +--------------+--------------+
+                              |
+                     MQTTS TLS Port 8883
+                   (ISRG Root X1 Cert)
+                              v
+               +-----------------------------+
+               |     HiveMQ Cloud Cluster    |
+               | (xxxxxx.s1.eu.hivemq.cloud) |
+               +--------------+--------------+
+                              |
+               +--------------v--------------+
+               |   Reksa Bridge (Compute VM) |
+               | - Name: reksa-free-bridge   |
+               | - Zone: us-central1-a       |
+               | - Type: e2-micro            |
+               | - Persistent MQTTS Gateway  |
+               +--------------+--------------+
+                              |
+                     gRPC / HTTPS Push
+                              v
+               +-----------------------------+
+               |     Google Cloud Pub/Sub    |
+               |  (Topic: reksa-telemetry)   |
+               +--------------+--------------+
+                              |
+                 Push Subscription Webhook
+              (POST /api/v1/ingest/pubsub)
+                              v
++-----------------------------+-----------------------------+
+|               FastAPI Backend (Cloud Run)                 |
+| - Near-Miss Detection Engine                              |
+| - WebSocket Broadcaster (/ws/live)                        |
+| - Speech NLU Processor (Wit.ai API)                       |
++--------------+------------------------------+--------------+
+               |                             |
+      SQLAlchemy (async)                     | WebSocket & HTTPS
+               v                             v
++-----------------------------+ +---------------------------+
+|    Neon Lakebase Postgres   | |      Firebase Hosting     |
+| (Database Cloud Relasional) | | (React Dashboard Web App) |
+| (Insiden, Personel, Audit)  | |  (https://reksa-k3.web.app)|
++-----------------------------+ +---------------------------+
 ```
 
-> **Catatan K3:** Alarm fisik (buzzer & vibrasi) pada helm ESP32 beroperasi mandiri (*autonomous*). Pemutusan internet atau cloud outage tidak menghentikan fungsi perlindungan K3 lokal di helm.
+> **Prinsip Keselamatan K3:** Seluruh aktuator alarm lokal helm (buzzer dan motor vibrasi) bekerja secara otonom pada chip ESP32 (< 20 ms). Gangguan jaringan internet atau downtime cloud **tidak mematikan** perlindungan bahaya fisik di lapangan.
 
 ---
 
-## 1. Deployment Lokal (Docker Compose)
+## 1. Setup Broker HiveMQ Cloud (TLS Port 8883) — Panduan Pasti Fix
 
-Langkah tercepat untuk menjalankan seluruh ekosistem REKSA di laptop/server lokal.
+HiveMQ Cloud Serverless digunakan sebagai broker MQTT cloud publik terkelola untuk menghubungkan perangkat ESP32 di mana pun berada.
 
-### Prasyarat
-- Docker Engine $\ge 24.0$ & Docker Compose v2
-- Port yang harus tersedia: `5173` (Frontend), `8000` (Backend API), `8100` (AI Service), `1883` (MQTT Mosquitto), `9001` (MQTT WS), `5432` (PostgreSQL).
+### A. Pembuatan Cluster & Hostname
+1. Buka [HiveMQ Cloud Console](https://app.hivemq.com/) dan buat cluster baru (**Serverless - Free Tier**).
+2. Salin URL Cluster pada dashboard HiveMQ (contoh: `abc123def456.s1.eu.hivemq.cloud`).
+3. Port broker yang digunakan adalah **`8883`** dengan enkripsi **TLS/SSL**. (Port 1883 tidak aktif pada HiveMQ Cloud demi keamanan).
 
-### Langkah Eksekusi
+### B. Konfigurasi Kredensial Pengguna (Access Management)
+Buka menu **Access Management → Credentials** pada konsol HiveMQ, buat 2 pengguna dengan hak akses penuh (*Publish & Subscribe*):
+1. **Pengguna Helm:**
+   * **Username:** `reksa-helmet-w01`
+   * **Password:** *(buat password aman, misal: `HelmSafety2026!`)*
+   * **Role:** *Publish and Subscribe*
+2. **Pengguna Bridge (Compute Engine VM):**
+   * **Username:** `reksa-bridge`
+   * **Password:** *(buat password aman, misal: `BridgeCloudPass2026!`)*
+   * **Role:** *Publish and Subscribe*
+
+### C. Sertifikat TLS Root CA untuk ESP32
+HiveMQ Cloud menggunakan sertifikat TLS yang diterbitkan oleh **Let's Encrypt (ISRG Root X1)**.
+Untuk menyetelnya secara otomatis ke firmware ESP32:
 ```bash
-# 1. Jalankan seluruh container
+chmod +x ./deploy/setup-hivemq.sh
+./deploy/setup-hivemq.sh
+```
+Script tersebut akan mengambil rantai sertifikat TLS dari HiveMQ Cloud, mengekstrak root CA, dan langsung menulis berkas `arduino/helm_v1/secrets.h` yang siap di-flash ke ESP32.
+
+### D. Verifikasi Koneksi Broker
+Jalankan pengujian end-to-end broker sebelum deploy:
+```bash
+chmod +x ./deploy/test-hivemq.sh
+./deploy/test-hivemq.sh
+```
+Jika berhasil, output akan menampilkan status *Connected* dan konfirmasi pesan publish/subscribe.
+
+---
+
+## 2. Arsitektur Cloud Production (GCP VM, Cloud Run, Firebase)
+
+Di lingkungan produksi cloud, beban kerja didistribusikan secara efisien sesuai karakteristik protokol:
+
+| Layanan | Platform | Konfigurasi Utama | Peran |
+| :--- | :--- | :--- | :--- |
+| **`reksa-bridge`** | Google Compute Engine (VM Instance) | **VM:** `reksa-free-bridge`<br>**Zone:** `us-central1-a`<br>**Type:** `e2-micro`<br>Debian 12 / Docker | Menjaga koneksi MQTTS TLS persisten 24/7 ke HiveMQ Cloud tanpa terputus (menghindari limitasi scale-to-zero serverless) dan mem-forward telemetri ke Cloud Pub/Sub via gRPC. |
+| **`reksa-backend`** | Google Cloud Run | `--min-instances 0`<br>`--memory 1Gi`<br>`--cpu 1` | `MQTT_ENABLED=false`, menerima data dari webhook push Cloud Pub/Sub, memproses machine learning Near-Miss, menghubungkan Neon PostgreSQL, dan mengalirkan WebSocket ke web. Scale-to-zero hemat biaya. |
+| **`reksa-ai`** | Google Cloud Run | `--min-instances 0`<br>`--memory 1Gi`<br>`--cpu 1`<br>`--cpu-throttling` | Microservice AI inferensi prediktif K3 (FastAPI + scikit-learn). Scale-to-zero ($0 saat idle). Melayani `/v1/forecast`, `/v1/prioritize`, `/v1/detect-anomaly`, dan `/health`. |
+| **Frontend** | Firebase Hosting | Target: `reksa-k3`<br>CDN Global | Menampilkan web dashboard React Vite K3 (`https://reksa-k3.web.app`). |
+
+### Efisiensi Biaya & Keandalan Koneksi:
+1. **Bridge pada Compute Engine VM (`reksa-free-bridge` di `us-central1-a`):**
+   * Protokol MQTT subscriber membutuhkan koneksi TCP persisten (*always-on long-lived connection*). Jika dijalankan di Cloud Run dengan scale-to-zero, kontainer akan mati saat idle sehingga pesan MQTT dari helm terlewat.
+   * VM `e2-micro` pada zone `us-central1-a` dialokasikan khusus untuk menjaga koneksi listener MQTT dan meneruskan data ke Cloud Pub/Sub secara stabil dan hemat sumber daya.
+2. **Backend & AI pada Cloud Run (`--min-instances 0`):**
+   * Layanan `reksa-backend` dan `reksa-ai` berbasis HTTP/Webhook request-driven, sehingga disetel `--min-instances 0` agar kontainer otomatis tidur (*idle*) saat tidak ada event, menghasilkan tagihan komputasi **Rp 0 / $0**.
+
+---
+
+## 3. Deployment Otomatis via GitHub Actions CI/CD (Rekomendasi)
+
+Repositori ini telah dilengkapi pipeline CI/CD GitHub Actions terotomatisasi di direktori `.github/workflows/`. Setiap kali Anda melakukan `git push origin master`, pipeline akan mendeteksi folder yang berubah dan melakukan deploy secara otomatis.
+
+### A. Menyetel GitHub Repository Secrets
+Buka repositori GitHub Anda di browser: **Settings → Secrets and variables → Actions**, lalu tambahkan *Repository Secrets* berikut:
+
+| Nama Secret | Deskripsi / Contoh Nilai |
+| :--- | :--- |
+| `GCP_PROJECT_ID` | ID Project Google Cloud Anda (contoh: `reksa-safety`) |
+| `FIREBASE_SERVICE_ACCOUNT` | Seluruh isi file JSON Service Account GCP dengan izin Cloud Run Admin, Pub/Sub Admin, & Firebase Admin |
+| `DATABASE_URL` | Connection string Neon PostgreSQL (contoh: `postgresql://neondb_owner:***@ep-***.asia-southeast-2.aws.neon.tech/neondb?sslmode=require`) |
+| `HIVEMQ_HOST` | Hostname broker HiveMQ Anda tanpa `mqtts://` (contoh: `abc123def456.s1.eu.hivemq.cloud`) |
+| `HIVEMQ_USERNAME` | Username broker untuk bridge (contoh: `reksa-bridge`) |
+| `HIVEMQ_PASSWORD` | Password broker untuk bridge |
+| `PUBSUB_TOPIC` | Nama topik Pub/Sub (isi: `reksa-telemetry`) |
+| `WIT_AI_TOKEN` | Token API server Wit.ai untuk NLU suara Bahasa Indonesia |
+| `VITE_API_URL` | URL Cloud Run backend (contoh: `https://reksa-backend-***-et.a.run.app/api/v1`) |
+| `VITE_WS_URL` | URL WebSocket Cloud Run backend (contoh: `wss://reksa-backend-***-et.a.run.app/ws/live`) |
+
+### B. Cara Memicu Deploy Otomatis
+* **Deploy Backend:** Lakukan perubahan/push pada folder `backend/**` $\to$ workflow `.github/workflows/deploy-backend.yml` akan berjalan.
+* **Deploy AI Service:** Lakukan perubahan/push pada folder `AI/**` $\to$ workflow `.github/workflows/deploy-ai.yml` akan berjalan.
+* **Deploy Frontend:** Lakukan perubahan/push pada folder `frontend/**` $\to$ workflow `.github/workflows/deploy-frontend.yml` akan berjalan.
+* **Bridge (Compute Engine VM):** Layanan `reksa-bridge` berjalan persisten di Compute Engine VM instance (`reksa-free-bridge`, zone `us-central1-a`) agar koneksi MQTTS tidak terputus. Deploy/update dilakukan langsung di VM menggunakan Docker / systemd.
+* **Deploy Manual:** Buka tab **Actions** di GitHub, pilih workflow yang ingin dijalankan, lalu klik tombol **Run workflow**.
+
+---
+
+## 4. Deployment Manual via Google Cloud CLI (Alternatif)
+
+Jika Anda ingin melakukan deploy manual langsung dari terminal laptop:
+
+### Prasyarat Terminal:
+```bash
+gcloud auth login
+gcloud auth application-default login
+gcloud config set project ID_PROJECT_GCP_ANDA
+firebase login
+```
+
+### A. Deploy Reksa Bridge ke Google Compute Engine (VM Instance):
+
+1. **Buat Service Account & Izin Pub/Sub untuk Bridge:**
+```bash
+gcloud iam service-accounts create reksa-bridge \
+  --display-name="REKSA Bridge Gateway" || true
+
+gcloud pubsub topics add-iam-policy-binding reksa-telemetry \
+  --member="serviceAccount:reksa-bridge@${GCP_PROJECT_ID}.iam.gserviceaccount.com" \
+  --role="roles/pubsub.publisher"
+```
+
+2. **Buat VM Instance di Compute Engine (`reksa-free-bridge` di `us-central1-a`):**
+```bash
+gcloud compute instances create reksa-free-bridge \
+  --zone=us-central1-a \
+  --machine-type=e2-micro \
+  --image-family=debian-12 \
+  --image-project=debian-cloud \
+  --service-account="reksa-bridge@${GCP_PROJECT_ID}.iam.gserviceaccount.com" \
+  --scopes=cloud-platform \
+  --tags=reksa-bridge
+```
+
+3. **Deploy Container Bridge di dalam VM:**
+```bash
+# SSH ke VM reksa-free-bridge dan siapkan container Docker
+gcloud compute ssh reksa-free-bridge --zone=us-central1-a --command="
+  sudo apt-get update && sudo apt-get install -y docker.io git
+  sudo systemctl enable --now docker
+  sudo mkdir -p /opt/reksa-bridge /var/data/reksa
+"
+
+# Salin folder bridge dan file environment ke VM
+gcloud compute scp --recurse bridge reksa-free-bridge:/opt/reksa-bridge --zone=us-central1-a
+
+# Konfigurasikan /opt/reksa-bridge/bridge/.env di VM:
+# GOOGLE_CLOUD_PROJECT=ID_PROJECT_GCP_ANDA
+# PUBSUB_TOPIC=reksa-telemetry
+# MQTT_HOST=abc123def456.s1.eu.hivemq.cloud
+# MQTT_PORT=8883
+# MQTT_USERNAME=reksa-bridge
+# MQTT_PASSWORD=PasswordBridgeAnda
+# BRIDGE_ID=reksa-gateway-01
+
+# Bangun dan jalankan kontainer bridge secara persisten (Always-On)
+gcloud compute ssh reksa-free-bridge --zone=us-central1-a --command=\"
+  cd /opt/reksa-bridge/bridge
+  sudo docker build -t reksa-bridge .
+  sudo docker rm -f reksa-bridge || true
+  sudo docker run -d --name reksa-bridge \\
+    --restart always \\
+    --env-file .env \\
+    -v /var/data/reksa:/data \\
+    reksa-bridge
+\"
+```
+
+### B. Deploy FastAPI Backend ke Cloud Run:
+```bash
+cat << 'EOF' > backend/env.yaml
+APP_ENV: "production"
+MQTT_ENABLED: "false"
+DATABASE_URL: "postgresql+psycopg://neondb_owner:***@ep-***.asia-southeast-2.aws.neon.tech/neondb?sslmode=require"
+WIT_AI_TOKEN: "Bearer ***"
+CORS_ORIGINS: "https://reksa-k3.web.app,https://ID_PROJECT_GCP_ANDA.web.app,http://localhost:5173"
+EOF
+
+gcloud run deploy reksa-backend \
+  --source backend \
+  --region asia-southeast2 \
+  --allow-unauthenticated \
+  --memory 1Gi \
+  --cpu 1 \
+  --min-instances 0 \
+  --max-instances 2 \
+  --env-vars-file backend/env.yaml
+```
+
+### C. Deploy Reksa AI ke Cloud Run:
+```bash
+gcloud run deploy reksa-ai \
+  --source AI \
+  --region asia-southeast2 \
+  --allow-unauthenticated \
+  --memory 1Gi \
+  --cpu 1 \
+  --cpu-throttling \
+  --min-instances 0 \
+  --max-instances 1
+```
+
+### D. Sambungkan Google Cloud Pub/Sub ke Backend:
+```bash
+# 1. Buat Topic Pub/Sub
+gcloud pubsub topics create reksa-telemetry || true
+
+# 2. Ambil URL Backend Cloud Run
+BACKEND_URL="$(gcloud run services describe reksa-backend --region asia-southeast2 --format='value(status.url)')"
+
+# 3. Buat Push Subscription yang mengalirkan pesan ke webhook FastAPI
+gcloud pubsub subscriptions create reksa-cloud-run-push \
+  --topic=reksa-telemetry \
+  --push-endpoint="${BACKEND_URL}/api/v1/ingest/pubsub" \
+  --ack-deadline=30 || true
+```
+
+### E. Build & Deploy Frontend ke Firebase Hosting:
+```bash
+cd frontend
+VITE_API_URL="${BACKEND_URL}/api/v1" VITE_WS_URL="${BACKEND_URL/https:/wss:}/ws/live" npm run build
+firebase deploy --only hosting:reksa-k3
+```
+
+---
+
+## 5. Deployment Lokal (Pengujian Offline / Docker Compose)
+
+Untuk keperluan simulasi, presentasi offline, atau pengembangan lokal tanpa koneksi internet ke GCP:
+
+```bash
+# 1. Jalankan semua kontainer lokal (Postgres, Mosquitto, AI, Backend, Frontend)
 docker compose up --build -d
 
-# 2. Periksa status kesehatan container
+# 2. Cek status container
 docker compose ps
 
-# 3. Uji endpoint API
-curl -fsS http://localhost:8000/api/v1/health
-curl -fsS http://localhost:8100/health
+# 3. Akses dashboard di browser
+http://localhost:5173
 ```
 
-Buka dashboard di peramban: `http://localhost:5173`.
-
-Untuk memantau log secara live:
-```bash
-docker compose logs -f backend ai
-```
+Layanan lokal akan berjalan di port:
+* Frontend: `http://localhost:5173`
+* Backend API: `http://localhost:8000` (Docs di `/docs`)
+* AI Service: `http://localhost:8100`
+* MQTT Mosquitto: `localhost:1883`
+* PostgreSQL: `localhost:5432`
 
 ---
 
-## 2. Konfigurasi HiveMQ Cloud (TLS Port 8883)
+## 6. Verifikasi & Pengujian End-to-End
 
-Untuk pengujian helm fisik di luar jaringan LAN lokal menggunakan broker MQTT cloud publik.
+Setelah deployment selesai, lakukan pemeriksaan integritas sistem:
 
-### A. Setup Broker HiveMQ
-1. Buat akun di [HiveMQ Cloud](https://app.hivemq.com/) dan buat broker paket **Serverless** (gratis).
-2. Salin hostname cluster (contoh: `xxxxxx.s1.eu.hivemq.cloud`).
-3. Pada tab **Access Management → Credentials**, buat tiga akun kredensial terpisah:
-   - **Backend:** Username `reksa-backend` (Role: *Publish and Subscribe*)
-   - **Helmet:** Username `reksa-helmet-w01` (Role: *Publish and Subscribe*)
-   - **Gateway/Bridge:** Username `reksa-gateway-01` (Role: *Publish and Subscribe*)
-
-### B. Konfigurasi Firmware Helm (`arduino/helm_v1/`)
-1. Salin `arduino/helm_v1/secrets.example.h` menjadi `arduino/helm_v1/secrets.h`.
-2. Isi SSID WiFi, Password, Hostname HiveMQ, port `8883`, dan kredensial `reksa-helmet-w01`.
-3. Set `#define REKSA_MQTT_USE_TLS true` dan pastikan root CA terpasang (jangan gunakan mode insecure).
-4. Flash firmware ke ESP32.
-
-### C. Menjalankan Backend dengan HiveMQ
-Salin konfigurasi environment:
-```bash
-cp .env.hivemq.example .env.hivemq
-# Edit .env.hivemq dan masukkan broker host & credentials
-docker compose --env-file .env.hivemq -f docker-compose.yml -f docker-compose.hivemq.yml up --build -d
-```
-
----
-
-## 3. Deployment Production (GCP & Firebase)
-
-Arsitektur produksi cloud menempatkan backend dan AI service di **Google Cloud Run**, data telemetri melalui **Cloud Pub/Sub**, dan frontend di **Firebase Hosting**.
-
-### Prasyarat
-- Google Cloud SDK (`gcloud`) terinstal dan terautentikasi:
-  ```bash
-  gcloud auth login
-  gcloud auth application-default login
-  firebase login
-  ```
-- Project GCP dengan billing aktif.
-
-### Deployment Script Otomatis
-```bash
-export GCP_PROJECT_ID="id-project-anda"
-export GCP_REGION="asia-southeast2"
-
-# Jalankan deploy pipeline
-chmod +x ./deploy/gcp/deploy.sh
-./deploy/gcp/deploy.sh
-```
-
-Script ini otomatis melakukan:
-1. Build & push container image `reksa-backend` dan `reksa-ai` ke Artifact Registry / Container Registry.
-2. Deploy backend ke Cloud Run dengan flag `MQTT_ENABLED=false` (Cloud Run menerima data via Pub/Sub push HTTP webhook ke `/api/v1/ingest/pubsub`).
-3. Setup topic & subscription Pub/Sub.
-4. Build bundle frontend React dan deploy ke Firebase Hosting.
-
----
-
-## 4. Menjalankan MQTT Bridge (Edge Gateway)
-
-Bridge bertugas menjembatani pesan MQTT dari HiveMQ Cloud ke Google Cloud Pub/Sub dengan outbox SQLite lokal agar tidak ada data yang hilang saat internet gateway terputus.
-
-### Menjalankan via Docker Gateway:
-```bash
-mkdir -p secrets
-# Buat service account key terbatas untuk bridge
-gcloud iam service-accounts keys create secrets/gcp-service-account.json \
-  --iam-account="reksa-bridge@${GCP_PROJECT_ID}.iam.gserviceaccount.com"
-
-cp bridge/.env.example bridge/.env
-# Isi kredensial pada bridge/.env
-docker compose -f docker-compose.bridge.yml up --build -d
-```
-
----
-
-## 5. Verifikasi Uji Ketahanan Sinyal (Zero Data Loss)
-
-Untuk membuktikan ketahanan sistem saat pekerja berada di area blank spot:
-
-1. Nyalakan helm hingga terhubung ke broker (`Serial Monitor: Telemetry masuk buffer... attempt=1`).
-2. Matikan router Wi-Fi selama 15–30 detik sambil tetap menggerakkan helm.
-3. Amati Serial Monitor: payload tersimpan di antrean RAM internal helm (`telemetryQueue`, kapasitas 12 payload).
-4. Nyalakan kembali Wi-Fi.
-5. Konfirmasi bahwa seluruh payload yang tertunda dikirim ulang dengan `attempt > 1`, menerima `ACK` dari server, dan backend mendeduplikasi ID pesan tanpa data dobel.
+1. **Uji Status Bridge di Compute Engine VM (`reksa-free-bridge`):**
+   ```bash
+   gcloud compute ssh reksa-free-bridge --zone=us-central1-a --command="docker ps"
+   # Menampilkan container reksa-bridge dengan status Up
+   ```
+2. **Uji Health Check Backend:**
+   ```bash
+   curl -fsS https://reksa-backend-***-et.a.run.app/api/v1/health
+   # Output: {"status":"healthy", ...}
+   ```
+3. **Uji Health Check AI Service:**
+   ```bash
+   curl -fsS https://reksa-ai-***-et.a.run.app/health
+   # Output: {"status":"healthy","service":"reksa-ai","models_loaded":true}
+   ```
+4. **Uji Transmisi Telemetri Helm:**
+   * Nyalakan ESP32 yang sudah diprogram dengan `secrets.h`.
+   * Periksa log container Bridge pada Compute Engine VM:
+     ```bash
+     gcloud compute ssh reksa-free-bridge --zone=us-central1-a --command="docker logs -f reksa-bridge"
+     ```
+   * Pastikan muncul pesan log:
+     `Connected to HiveMQ and subscribed`
+     `Buffered HELMET-W01-... from REKSA/helmet/W01/sensor`
+     `Forwarded HELMET-W01-... to Pub/Sub as ...`
+5. **Pantau Dashboard Web:**
+   * Buka `https://reksa-k3.web.app`.
+   * Status pekerja `W01` otomatis berubah menjadi hijau (**Online**), dan indikator sensor (suhu, IMU, gas) terupdate secara real-time melalui WebSocket.

@@ -44,7 +44,16 @@ class Settings(BaseSettings):
     @classmethod
     def split_origins(cls, value: object) -> object:
         if isinstance(value, str):
-            return [part.strip() for part in value.split(",") if part.strip()]
+            trimmed = value.strip()
+            if trimmed.startswith("[") and trimmed.endswith("]"):
+                import json
+                try:
+                    parsed = json.loads(trimmed)
+                    if isinstance(parsed, list):
+                        return [str(item).strip() for item in parsed if str(item).strip()]
+                except Exception:
+                    pass
+            return [part.strip().strip("'\"") for part in trimmed.split(",") if part.strip().strip("'\"")]
         return value
 
 

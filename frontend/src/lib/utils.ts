@@ -1,8 +1,8 @@
 export function levelLabel(level: string, lang: 'id' | 'en' = 'id') {
   if (lang === 'en') {
-    return { SAFE: 'Safe', MODERATE: 'Moderate', HIGH: 'High', CRITICAL: 'Critical' }[level] ?? level
+    return { SAFE: 'Safe', MODERATE: 'Moderate', HIGH: 'High', CRITICAL: 'Critical', RECOVERY: 'Recovery' }[level] ?? level
   }
-  return { SAFE: 'Aman', MODERATE: 'Moderat', HIGH: 'Tinggi', CRITICAL: 'Kritis' }[level] ?? level
+  return { SAFE: 'Aman', MODERATE: 'Moderat', HIGH: 'Tinggi', CRITICAL: 'Kritis', RECOVERY: 'Pemulihan' }[level] ?? level
 }
 
 export function formatDate(value: string, lang: 'id' | 'en' = 'id') {

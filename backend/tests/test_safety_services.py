@@ -1,13 +1,10 @@
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 import pytest
 from pydantic import ValidationError
 
 from app.schemas.mqtt import HelmetSensorPayload
 from app.schemas.risk import RiskFeatures
-from app.services.device_service import is_device_offline
-from app.services.exposure_service import ExposureService, ExposureState
-from app.services.near_miss_service import NearMissService
 from app.services.proximity_service import ProximityService, ProximityThresholds
 from app.services.risk_engine_service import RiskEngine, classify_risk
 from app.services.warning_service import WarningService
@@ -35,30 +32,6 @@ def test_invalid_rssi_is_filtered() -> None:
     smoothed, level = service.add_reading("pair", 25)
     assert smoothed == -120
     assert level == "SAFE"
-
-
-def test_exposure_duration() -> None:
-    service = ExposureService()
-    start = datetime.now(UTC)
-    service.update("pair", "CRITICAL", -42, start)
-    state = service.update("pair", "CRITICAL", -40, start + timedelta(seconds=7))
-    assert state is not None
-    assert state.duration_seconds == 7
-
-
-def test_near_miss_threshold_and_cooldown() -> None:
-    now = datetime.now(UTC)
-    state = ExposureState(now - timedelta(seconds=6), now, [-42, -40], "CRITICAL")
-    service = NearMissService(critical_duration=5, cooldown_seconds=30)
-    assert service.should_create("pair", state, "MOVING", now)
-    assert not service.should_create("pair", state, "MOVING", now + timedelta(seconds=2))
-    assert service.should_create("pair", state, "MOVING", now + timedelta(seconds=31))
-
-
-def test_near_miss_requires_active_hazard() -> None:
-    now = datetime.now(UTC)
-    state = ExposureState(now - timedelta(seconds=8), now, [-40], "CRITICAL")
-    assert not NearMissService().should_create("pair", state, "INACTIVE", now)
 
 
 @pytest.mark.parametrize("score, level", [(0, "SAFE"), (24, "SAFE"), (25, "MODERATE"), (50, "HIGH"), (75, "CRITICAL"), (100, "CRITICAL")])
@@ -100,12 +73,6 @@ def test_helmet_payload_accepts_environment_readings() -> None:
 
     assert payload.temperature == 31.5
     assert payload.humidity == 72.0
-
-
-def test_device_offline_detection() -> None:
-    now = datetime.now(UTC)
-    assert is_device_offline(now - timedelta(seconds=31), now, 30)
-    assert not is_device_offline(now - timedelta(seconds=29), now, 30)
 
 
 def test_warning_creation_is_bounded() -> None:

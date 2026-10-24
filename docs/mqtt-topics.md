@@ -29,8 +29,8 @@ Pub/Sub mengembalikan message ID.
 | Subscribe | `REKSA/environment/+/data` | Suhu dan kelembapan |
 | Subscribe | `REKSA/event/nearmiss` | Event dari edge node opsional |
 | Subscribe | `REKSA/risk/+/score` | Assessment eksternal opsional |
-| Subscribe | `reksa/helmet/+/voice/stream` | Audio raw PCM 16-bit Mono 8kHz dari tombol PTT helm |
-| Subscribe | `reksa/helmet/+/voice/status` | Indikator status PTT (`start` / `stop`) |
+| Subscribe | `reksa/helmet/+/voice/stream` | Audio raw PCM 16-bit Mono 8kHz dari transmisi suara helm |
+| Subscribe | `reksa/helmet/+/voice/status` | Indikator status transmisi suara (`start` / `stop`) |
 | Publish | `REKSA/helmet/{worker_id}/warning` | Vibration/buzzer command |
 | Publish | `REKSA/helmet/{worker_id}/telemetry/ack` | ACK dan deduplikasi telemetry |
 | Publish | `REKSA/system/command` | System command |
