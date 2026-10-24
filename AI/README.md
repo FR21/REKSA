@@ -1,51 +1,36 @@
 # REKSA AI
 
-Paket ini berisi dua mesin analitik yang perannya terpisah dari sistem keselamatan lokal:
+Paket ini berisi tiga mesin analitik yang perannya terpisah dari sistem keselamatan lokal:
 
-| Engine | Waktu bekerja | Input | Output | Deployment awal |
+| Engine | Waktu bekerja | Input | Output | Deployment |
 |---|---|---|---|---|
-| Near-Miss Risk Forecaster | Sebelum/ketika pola berkembang | Window temporal BLE-RSSI + MPU6050 | Probabilitas eskalasi dan level advisory | Backend lebih dahulu; ESP32 hanya setelah lolos benchmark ukuran/latensi |
-| AI Priority Engine | Setelah event selesai | Satu baris per event + label supervisor | Prioritas pemeriksaan, skor, dan alasan | Backend/dashboard |
+| Near-Miss Risk Forecaster | Sebelum/ketika pola berkembang | Window temporal BLE-RSSI + MPU6050 (10s) | Probabilitas eskalasi, risk level, faktor dominan | Cloud Run / Docker (Port 8100) |
+| AI Priority Engine | Setelah event selesai | Baris event + label verifikasi supervisor | Prioritas pemeriksaan (LOW/MED/HIGH), skor | Cloud Run / Docker (Port 8100) |
+| Operational Anomaly Detector | Berjalan bersama telemetri | 14 parameter telemetri sensor rutin | Decision score, deteksi anomali/outlier | Cloud Run / Docker (Port 8100) |
 
-Keduanya **tidak memverifikasi near-miss**, tidak mengganti state machine, dan tidak boleh menjadi satu-satunya pengendali buzzer atau vibration motor. Keputusan final tetap pada supervisor K3.
+Ketiganya **tidak memverifikasi near-miss secara otomatis**, tidak mengganti state machine, dan tidak boleh menjadi satu-satunya pengendali buzzer atau vibration motor. Keputusan final tetap pada supervisor K3.
 
 ## Isi folder
 
 ```text
 AI/
-├── data/templates/             template data mentah, forecasting window, dan event
-├── examples/                   contoh request API
-├── integration/                kontrak TypeScript untuk dashboard
-├── models/                     artifact model hasil training (tidak masuk Git)
-├── scripts/
-│   ├── log_mqtt.py             logger MQTT ke CSV
-│   ├── build_datasets.py       raw samples -> dua dataset
-│   ├── train_forecaster.py
-│   └── train_priority_engine.py
-├── src/reksa_ai/
-│   ├── contracts.py            validasi input/output
-│   ├── features.py             feature engineering temporal
-│   ├── datasets.py             windowing dan event aggregation
-│   ├── baselines.py            baseline transparan untuk cold start
-│   ├── training.py             Logistic Regression vs Random Forest
-│   ├── inference.py            pemuatan model dan fallback
-│   └── service.py              API FastAPI
-└── tests/
+├── data/                       template dan dataset sintetis operasional
+├── examples/                   contoh request API (forecast & priority)
+├── models/                     artifact model terlatih (.joblib dan .json)
+├── notebooks/                  notebook training terpadu (Reksa_AI_Training.ipynb)
+├── src/reksa_ai/               source code FastAPI dan inference engine
+└── tests/                      suite unit test (pytest)
 ```
 
 ## Menjalankan API sekarang
 
-API tetap dapat dicoba sebelum training. Dalam kondisi itu respons menyebut `RULE_BASED_BASELINE` dan `probability_is_calibrated=false`.
+API menyajikan 3 engine inference (Near-Miss Risk Forecaster, Priority Engine, dan Operational Anomaly Detector) di port `8100`:
 
 ```bash
-cd AI
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e '.[dev]'
 uvicorn reksa_ai.service:app --reload --port 8100
 ```
 
-Buka dokumentasi interaktif di `http://localhost:8100/docs`.
+Buka dokumentasi interaktif Swagger di `http://localhost:8100/docs`.
 
 Contoh inference:
 
@@ -59,80 +44,58 @@ curl -X POST http://localhost:8100/v1/prioritize \
   --data @examples/priority_request.json
 ```
 
-## Jalur data
+## Dataset Operasional
 
-Untuk mencoba training sebelum data perangkat tersedia, dataset sintetis siap pakai berada di:
+Dataset sintetis operasional siap pakai berada di:
 
 ```text
-data/synthetic/forecasting_windows_synthetic.csv  # 15.000 window
-data/synthetic/event_dataset_synthetic.csv        # 6.000 event
-data/synthetic/synthetic_dataset_report.json      # distribusi dan quality checks
+data/synthetic/forecasting_windows_operational_synthetic.csv  # 15.000 window temporal
+data/synthetic/event_dataset_operational_synthetic.csv        # 6.000 event insiden
+data/synthetic/iot_telemetry_schema_synthetic.jsonl           # Skema telemetri IoT
 ```
 
-Baca `data/synthetic/README.md` sebelum menggunakannya. Semua record ditandai `data_origin=SYNTHETIC`; dataset ini hanya untuk pengembangan pipeline dan tidak dapat menjadi bukti performa keselamatan nyata.
-
-1. Rekam payload helmet:
-
-```bash
-python scripts/log_mqtt.py \
-  --host localhost \
-  --output data/raw/session-P01-S01.csv \
-  --participant P01 \
-  --session S01 \
-  --scenario NORMAL_APPROACH \
-  --trajectory TRJ-P01-S01-001
-```
-
-2. Setelah sesi, lengkapi `event_id`, `forecast_target`, `target_source`, `supervisor_priority`, dan `verification_label`. Jangan mengisi controlled scenario sebagai `VERIFIED_NEAR_MISS`; gunakan `target_source=CONTROLLED_SCENARIO` dan label seperti `SIMULATED_HIGH_RISK`.
-
-3. Bentuk dua dataset:
-
-```bash
-python scripts/build_datasets.py data/raw/all-sessions.csv \
-  --forecast-output data/processed/forecasting_windows.csv \
-  --event-output data/processed/event_dataset.csv \
-  --window-seconds 10 \
-  --horizon-seconds 5 \
-  --step-seconds 1
-```
-
-Window hanya memakai data sampai `window_ended_at`. Target dicari setelah titik itu dalam horizon prediksi, sehingga fitur tidak melihat masa depan.
+Seluruh proses eksplorasi data, pipeline windowing, perbandingan model ML, kalibrasi probabilitas, dan ekspor model dijalankan terpusat di notebook:
+`notebooks/Reksa_AI_Training.ipynb`.
 
 ## Training lokal atau Google Colab
 
-Notebook lengkap untuk kedua AI tersedia di:
+Notebook lengkap untuk ketiga model AI tersedia di:
 
 ```text
-notebooks/Reksa_AI.ipynb
+notebooks/Reksa_AI_Training.ipynb
 ```
 
-Notebook tersebut memperlihatkan seluruh proses secara eksplisit: import, cleaning, leakage audit, participant holdout, grouped cross-validation, preprocessing, baseline comparison, calibration, evaluasi, feature importance, artifact export, dan inference example.
-
-Unggah folder `AI` dan dataset ke Colab, lalu jalankan:
-
-```bash
-pip install -e './AI[dev]'
-cd AI
-python scripts/train_forecaster.py data/processed/forecasting_windows.csv \
-  --output models/near_miss_forecaster.joblib \
-  --version forecaster-v1
-
-python scripts/train_priority_engine.py data/processed/event_dataset.csv \
-  --output models/priority_engine.joblib \
-  --version priority-v1
-```
-
-Training membandingkan rule-based baseline, Logistic Regression, dan Random Forest, lalu memilih F1 terbaik di antara model ML. Split dilakukan per gabungan `participant_id + session_id`; satu grup tidak dapat muncul di train dan test. Forecaster mencoba kalibrasi sigmoid dengan group cross-validation dan akan menandai artifact sebagai tidak terkalibrasi jika grup/kelas belum cukup.
-
-Artifact `.joblib` berisi model final. File `.json` di sampingnya berisi versi, jumlah data, policy split, confusion matrix, precision, recall, F1, ROC-AUC/Brier untuk forecaster, dan hasil semua model pembanding. Artifact hanya dilayani API jika `deployment_recommended=true`, yaitu skor F1 test model terpilih melampaui rule baseline; jika tidak, service kembali ke baseline dan melaporkan alasannya pada `/health`.
+Notebook tersebut memperlihatkan seluruh proses secara eksplisit: import, cleaning, leakage audit, participant holdout, grouped cross-validation, preprocessing, baseline comparison, calibration, evaluasi, feature importance, artifact export, dan demonstrasi output JSON real-time.
 
 Untuk memakainya:
 
 ```bash
 export REKSA_FORECAST_MODEL=models/near_miss_forecaster.joblib
 export REKSA_PRIORITY_MODEL=models/priority_engine.joblib
+export REKSA_ANOMALY_MODEL=models/operational_anomaly_detector.joblib
 uvicorn reksa_ai.service:app --host 0.0.0.0 --port 8100
 ```
+
+## Deployment Cloud Run (CI/CD)
+
+Layanan `reksa-ai` dapat dideploy ke Google Cloud Run baik secara otomatis melalui GitHub Actions (`.github/workflows/deploy-ai.yml`) maupun manual:
+
+```bash
+gcloud run deploy reksa-ai \
+  --source AI \
+  --region asia-southeast2 \
+  --allow-unauthenticated \
+  --memory 1Gi \
+  --cpu 1 \
+  --cpu-throttling \
+  --min-instances 0 \
+  --max-instances 1
+```
+
+Spesifikasi hemat biaya:
+- `--min-instances 0`: Scale-to-zero otomatis (biaya $0 / Rp 0 saat idle).
+- `--cpu-throttling`: Alokasi CPU hanya aktif saat inferensi diproses.
+- `--max-instances 1`: Menjaga batas biaya operasional cloud.
 
 ## Catatan sampling forecaster
 
@@ -142,7 +105,7 @@ Model forecaster sebaiknya dijalankan di backend lebih dahulu. Pemindahan ke ESP
 
 ## Tampilan supervisor
 
-Kontrak frontend tersedia di [supervisor-ai.types.ts](integration/supervisor-ai.types.ts). Dashboard sebaiknya menampilkan:
+Dashboard Web REKSA menampilkan:
 
 - `Live Monitoring`: probabilitas eskalasi forecaster, sumber inference, dan faktor dominan. Tulis “baseline score” apabila `probability_is_calibrated=false`.
 - `Event Review Queue`: urutkan event berdasarkan `priority_score`, tampilkan reason codes dan penjelasan.

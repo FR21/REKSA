@@ -104,6 +104,15 @@ export function AppLayout() {
     ? t.pageTitles.workerDetail
     : titles[location.pathname] ?? 'REKSA'
 
+  const formatProfileRole = (role: string) => {
+    if (role === 'Supervisor K3' || role === 'Safety Supervisor') return t.profileModal.roles.supervisor
+    if (role === 'Manajer Operasional' || role === 'Operations Manager') return t.profileModal.roles.manager
+    if (role === 'Petugas K3' || role === 'Safety Officer (HSE)') return t.profileModal.roles.officer
+    if (role === 'Staf Operasional' || role === 'Operations Staff') return t.profileModal.roles.operations
+    if (role === 'Administrator Sistem' || role === 'System Administrator') return t.profileModal.roles.admin
+    return role
+  }
+
   return (
     <div className={`app-shell ${collapsed ? 'is-collapsed' : ''}`}>
       {mobileOpen && <button className="mobile-overlay" aria-label={t.common.close} onClick={() => setMobileOpen(false)} />}
@@ -134,7 +143,7 @@ export function AppLayout() {
             <span>{profile.initials}</span>
             <div>
               <strong>{profile.name}</strong>
-              <small>{profile.role}</small>
+              <small>{formatProfileRole(profile.role)}</small>
             </div>
           </div>
           <div className="system-mini" title={summaryQuery.data ? `${summaryQuery.data.connected_devices} / ${summaryQuery.data.total_devices} ${t.nav.devicesOnline}` : t.common.systemOperational}>
@@ -233,7 +242,7 @@ export function AppLayout() {
               <span>{profile.initials}</span>
               <div>
                 <strong>{profile.name}</strong>
-                <small>{profile.role}</small>
+                <small>{formatProfileRole(profile.role)}</small>
               </div>
             </div>
           </div>

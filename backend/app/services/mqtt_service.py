@@ -1,4 +1,5 @@
 import asyncio
+import inspect
 import json
 import logging
 import ssl
@@ -98,7 +99,7 @@ class MQTTService:
         try:
             if "/voice/" in message.topic:
                 if self.handler:
-                    if asyncio.iscoroutinefunction(self.handler) and self.loop:
+                    if inspect.iscoroutinefunction(self.handler) and self.loop:
                         asyncio.run_coroutine_threadsafe(self.handler(message.topic, message.payload), self.loop)
                     else:
                         self.handler(message.topic, message.payload)
@@ -119,7 +120,7 @@ class MQTTService:
                 while len(self._seen_message_ids) > self.dedup_max_messages:
                     self._seen_message_ids.popitem(last=False)
             if self.handler:
-                if asyncio.iscoroutinefunction(self.handler) and self.loop:
+                if inspect.iscoroutinefunction(self.handler) and self.loop:
                     asyncio.run_coroutine_threadsafe(self.handler(message.topic, validated), self.loop)
                 else:
                     self.handler(message.topic, validated)

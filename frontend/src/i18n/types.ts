@@ -297,7 +297,12 @@ export interface TranslationSchema {
     actionHigh: string
     actionModerate: string
     actionSafe: string
+    actionRecovery: string
+    actionOffline: string
+    actionOfflineDesc: string
+    dataSourceOffline: string
     actionRecommendations: Record<string, string>
+    protocolPills: Record<string, string[]>
     dataSource: string
     auditTitle: string
     auditSubtitle: string
@@ -477,5 +482,31 @@ export interface TranslationSchema {
     safetyRuleActive: string
     deviceOffline: string
     factorLabels: Record<string, string>
+    anomalyTitle: string
+    anomalySubtitle: string
+    anomalyNormal: string
+    anomalyNormalDesc: string
+    anomalyDetected: string
+    anomalyDetectedDesc: string
+    anomalyScoreLabel: string
+    anomalyAwaiting: string
+    anomalyStandbyDesc: string
+    telemetryHealthyIMU: (g: number) => string
+    telemetryAnomalyIMU: (g: number) => string
+    telemetryHealthySignal: (rssi: number) => string
+    telemetryAnomalySignal: (rssi: number) => string
+    telemetryPacketLossNormal: string
+    telemetryPacketLossWarning: string
+    aiRecommendations: Record<string, string>
+    mlModel: string
+    safetyProtocol: string
+    offlineTitle: string
+    offlineDesc: string
+    offlineSource: string
+    offlinePills: string[]
+    anomalyOfflineTitle: string
+    anomalyOfflineDesc: string
+    anomalyOfflineSource: string
+    anomalyOfflinePills: string[]
   }
 }

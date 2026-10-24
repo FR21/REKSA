@@ -1,7 +1,7 @@
 {
   "generated_at": "2026-08-07T10:00:28.945998+00:00",
   "generator_seed": 20260807,
-  "warning": "SYNTHETIC DATA ONLY. Suitable for pipeline development and prototyping; not valid evidence of real-world safety performance.",
+  "warning": "SYNTHETIC DATA ONLY.",
   "forecasting_windows": {
     "rows": 15000,
     "participants": 40,

@@ -25,7 +25,7 @@ class WebSocketManager:
         for connection in tuple(self.connections):
             try:
                 await connection.send_json(envelope)
-            except Exception:  # connection failure is isolated from MQTT/simulation processing
+            except Exception:
                 stale.append(connection)
         for connection in stale:
             await self.disconnect(connection)

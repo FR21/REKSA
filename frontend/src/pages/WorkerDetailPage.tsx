@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Activity, ArrowLeft, BellRing, CheckCircle2, Cpu, HardHat, Radio, ShieldAlert, Thermometer, Wifi, Wind } from 'lucide-react'
+import { Activity, ArrowLeft, BellRing, CheckCircle2, Cpu, HardHat, Radio, ShieldAlert, ShieldCheck, Thermometer, Wifi, WifiOff, Wind } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { ErrorState, LoadingState } from '../components/common/States'
 import { Panel } from '../components/common/Panel'
 import { RiskBadge } from '../components/common/RiskBadge'
 import { AIAdvisoryPanel } from '../components/workers/AIAdvisoryPanel'
+import { OperationalAnomalyPanel } from '../components/workers/OperationalAnomalyPanel'
 import { Pagination } from '../components/common/Pagination'
 import { formatDate } from '../lib/utils'
 import { useProfile } from '../hooks/useProfile'
@@ -141,11 +142,29 @@ export default function WorkerDetailPage() {
         </div>
       </div>
 
+      {(data.risk_level === 'RECOVERY' || data.recovery?.active) && (
+        <div className="recovery-actions" style={{ fontSize: '12px', padding: '10px 14px', borderRadius: '8px', marginBottom: '8px' }}>
+          <CheckCircle2 size={16} className="recovery-dot" />
+          <span>
+            {language === 'en'
+              ? 'Recovery Mode Active: Safe zone held · Local alarm stopped · Event closed and duration recorded.'
+              : 'Mode Pemulihan Aktif: Kondisi aman bertahan setelah keluar zona · Alarm dihentikan · Event ditutup dan durasi dihitung.'}
+          </span>
+        </div>
+      )}
+
       <div className="status-strip" style={!data.online ? { opacity: 0.5 } : {}}>
         <div>
           <HardHat />
           <span>
-            {t.workerDetail.smartHelmet}<b>{data.online ? t.common.online : t.common.offline}</b>
+            {t.workerDetail.smartHelmet}
+            <b style={data.online && data.ai_advisory?.anomaly?.is_anomaly ? { color: '#dc2626' } : undefined}>
+              {data.online
+                ? data.ai_advisory?.anomaly?.is_anomaly
+                  ? `${t.common.online} · ${language === 'en' ? 'Anomaly' : 'Anomali'}`
+                  : t.common.online
+                : t.common.offline}
+            </b>
           </span>
         </div>
         <div>
@@ -191,31 +210,94 @@ export default function WorkerDetailPage() {
         </div>
       </div>
 
-      <div className="detail-grid">
+      <div className="action-cards-grid">
         <AIAdvisoryPanel advisory={data.ai_advisory} online={data.online} />
+        <OperationalAnomalyPanel
+          anomaly={data.ai_advisory?.anomaly}
+          online={data.online}
+          impactG={data.impact_g}
+          rssi={data.rssi}
+        />
 
         <Panel title={t.workerDetail.actionTitle} subtitle={t.workerDetail.actionSubtitle} className="action-panel">
-          <div className={`recommendation risk-bg-${data.risk_level.toLowerCase()}`}>
-            <ShieldAlert size={32} />
-            <div>
-              <strong>
-                {data.risk_level === 'CRITICAL'
-                  ? t.workerDetail.actionCritical
-                  : data.risk_level === 'HIGH'
-                  ? t.workerDetail.actionHigh
-                  : data.risk_level === 'MODERATE'
-                  ? t.workerDetail.actionModerate
-                  : t.workerDetail.actionSafe}
-              </strong>
-              <p>{t.workerDetail.actionRecommendations[data.recommended_action] ?? data.recommended_action}</p>
-            </div>
-          </div>
-          <div className="source-line">
-            <span>{t.workerDetail.dataSource}</span>
-            <b>{data.calculation_source.replaceAll('_', ' ')}</b>
-          </div>
-        </Panel>
+          {!data.online ? (
+            <>
+              <div className="recommendation risk-bg-standby">
+                <WifiOff size={32} />
+                <div>
+                  <strong>{t.workerDetail.actionOffline}</strong>
+                  <p>{t.workerDetail.actionOfflineDesc}</p>
+                </div>
+              </div>
 
+              {t.workerDetail.protocolPills?.OFFLINE && (
+                <div className="ai-factor-pills">
+                  {t.workerDetail.protocolPills.OFFLINE.map((pill) => (
+                    <span key={pill} className="ai-factor-pill">
+                      {pill}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              <div className="source-line">
+                <span>{t.workerDetail.dataSource}</span>
+                <b>{t.workerDetail.dataSourceOffline}</b>
+              </div>
+            </>
+          ) : (
+            <>
+              {(() => {
+                const isRecovery = data.risk_level === 'RECOVERY' || Boolean(data.recovery?.active)
+                return (
+                  <>
+                    <div className={`recommendation risk-bg-${isRecovery ? 'recovery' : data.risk_level.toLowerCase()}`}>
+                      {isRecovery ? (
+                        <ShieldCheck size={32} />
+                      ) : data.risk_level === 'SAFE' ? (
+                        <CheckCircle2 size={32} />
+                      ) : (
+                        <ShieldAlert size={32} />
+                      )}
+                      <div>
+                        <strong>
+                          {data.risk_level === 'CRITICAL'
+                            ? t.workerDetail.actionCritical
+                            : data.risk_level === 'HIGH'
+                            ? t.workerDetail.actionHigh
+                            : data.risk_level === 'MODERATE'
+                            ? t.workerDetail.actionModerate
+                            : isRecovery
+                            ? t.workerDetail.actionRecovery
+                            : t.workerDetail.actionSafe}
+                        </strong>
+                        <p>{t.workerDetail.actionRecommendations[data.recommended_action] ?? data.recommended_action}</p>
+                      </div>
+                    </div>
+
+                    {(isRecovery ? t.workerDetail.protocolPills?.RECOVERY : t.workerDetail.protocolPills?.[data.risk_level]) && (
+                      <div className="ai-factor-pills">
+                        {(isRecovery ? t.workerDetail.protocolPills.RECOVERY : t.workerDetail.protocolPills[data.risk_level]).map((pill) => (
+                          <span key={pill} className="ai-factor-pill">
+                            {pill}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )
+              })()}
+
+              <div className="source-line">
+                <span>{t.workerDetail.dataSource}</span>
+                <b>{t.aiAdvisory.safetyProtocol}</b>
+              </div>
+            </>
+          )}
+        </Panel>
+      </div>
+
+      <div className="detail-grid">
         <Panel title={t.workerDetail.auditTitle} subtitle={t.workerDetail.auditSubtitle}>
           <div
             className="distribution-wrap"

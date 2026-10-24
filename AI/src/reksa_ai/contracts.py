@@ -161,6 +161,21 @@ class ForecastResponse(BaseModel):
     probability_is_calibrated: bool
     score_semantics: str
     advisory_only: bool = True
+    anomaly: AnomalyResponse | None = None
+    generated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class AnomalyResponse(BaseModel):
+    engine: str = "OPERATIONAL_ANOMALY_DETECTOR"
+    window_id: str | None = None
+    worker_id: str | None = None
+    decision_score: float
+    is_anomaly: bool
+    status: str
+    alert_flag: str
+    inference_source: str
+    model_version: str
+    advisory_only: bool = True
     generated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
@@ -195,3 +210,4 @@ class CombinedAnalysisRequest(BaseModel):
 class CombinedAnalysisResponse(BaseModel):
     forecast: ForecastResponse | None = None
     priority_assessment: PriorityResponse | None = None
+    anomaly: AnomalyResponse | None = None

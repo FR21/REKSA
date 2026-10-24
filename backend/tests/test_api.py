@@ -162,3 +162,30 @@ async def test_get_and_update_profile(transport: httpx.ASGITransport) -> None:
         assert verify_res.status_code == 200
         assert verify_res.json()["name"] == "Ahmad Dani"
 
+
+@pytest.mark.asyncio
+async def test_mark_worker_safe_creates_near_miss(transport: httpx.ASGITransport) -> None:
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        from app.simulation.engine import simulation_engine
+        worker = simulation_engine.state["workers"][0]
+        worker["risk_level"] = "CRITICAL"
+        worker["risk_score"] = 92
+        worker["closest_hazard"] = "M-FLK-01"
+        worker["hazard_name"] = "Forklift Alpha"
+        worker["rssi"] = -58
+
+        res = await client.post(f"/api/v1/workers/{worker['id']}/mark-safe")
+        assert res.status_code == 200
+        updated = res.json()
+        assert updated["risk_level"] == "RECOVERY"
+        assert updated["risk_score"] == 18
+        assert updated["rssi"] == -88
+        assert updated["proximity"] == "RECOVERY"
+        assert updated["recovery"]["active"] is True
+
+        nm_res = await client.get("/api/v1/near-misses")
+        assert nm_res.status_code == 200
+        items = nm_res.json()["items"]
+        assert any(item["worker_id"] == worker["id"] and item["acknowledged"] is True for item in items)
+
+

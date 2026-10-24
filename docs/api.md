@@ -4,6 +4,14 @@ Base REST path: `/api/v1`. Dokumentasi interaktif tersedia di `/docs` dan `/redo
 
 Kelompok endpoint aktif: system, dashboard, workers, hazards, near-misses, devices, analytics, risk, settings, simulation reset, dan warnings. Daftar kontrak aktual dapat diekspor dari `/openapi.json`.
 
+### Tingkat Risiko K3 (Risk Levels)
+API REST dan streaming WebSocket menggunakan 5 status risiko terstandarisasi:
+- `SAFE`: Kondisi aman normal (skor 0–39).
+- `MODERATE`: Peringatan jarak mendekati batas perimeter bahaya (skor 40–69).
+- `HIGH`: Ancaman jarak dekat, butuh tindakan pencegahan (skor 70–89).
+- `CRITICAL`: Jarak pengereman darurat / titik jepit kritis (skor 90–100, alarm lokal helm aktif).
+- `RECOVERY`: Mode pemulihan paska keluar dari zona bahaya atau tindakan `POST /workers/{id}/mark-safe` (alarm dihentikan, event ditutup, durasi dihitung).
+
 WebSocket berada di `WS /ws/live`. Envelope konsisten:
 
 ```json

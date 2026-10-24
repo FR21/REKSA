@@ -64,7 +64,7 @@ else
     --cpu 1 \
     --min-instances 0 \
     --max-instances 2 \
-    --set-env-vars="REKSA_FORECAST_MODEL=/app/models/near_miss_forecaster.joblib,REKSA_PRIORITY_MODEL=/app/models/priority_engine.joblib"
+    --set-env-vars="REKSA_FORECAST_MODEL=/app/models/near_miss_forecaster.joblib,REKSA_PRIORITY_MODEL=/app/models/priority_engine.joblib,REKSA_ANOMALY_MODEL=/app/models/operational_anomaly_detector.joblib"
 fi
 AI_URL="$(gcloud run services describe "${AI_SERVICE}" --region "${GCP_REGION}" --format='value(status.url)')"
 
@@ -99,8 +99,6 @@ gcloud beta services identity create \
   --service=pubsub.googleapis.com \
   --project="${GCP_PROJECT_ID}" >/dev/null
 
-# The Google-managed identity can take a few seconds to become a valid IAM
-# principal. Scope token creation to the push identity instead of the project.
 TOKEN_ROLE_BOUND=false
 for ATTEMPT in $(seq 1 12); do
   if TOKEN_ROLE_OUTPUT="$(gcloud iam service-accounts add-iam-policy-binding "${PUSH_SA}" \

@@ -1,0 +1,86 @@
+{
+  "kind": "priority_engine",
+  "model_version": "priority-enterprise-v2",
+  "algorithm": "Logistic Regression",
+  "features": [
+    "event_duration_seconds",
+    "rssi_mean",
+    "rssi_peak",
+    "rssi_min",
+    "rssi_std",
+    "rssi_slope",
+    "warning_duration_seconds",
+    "danger_duration_seconds",
+    "state_transition_count",
+    "packet_loss_count",
+    "acceleration_max_g",
+    "gyroscope_max_dps",
+    "orientation_change_deg",
+    "sudden_motion",
+    "candidate_impact",
+    "candidate_fall",
+    "post_event_stillness_seconds",
+    "temperature_c",
+    "humidity_percent",
+    "mq135_deviation",
+    "hazard_active",
+    "local_warning_success",
+    "repeated_exposure_count",
+    "similar_event_count",
+    "hazard_type",
+    "alarm_level",
+    "connectivity_status"
+  ],
+  "metrics": {
+    "selected_test_metrics": {
+      "accuracy": 0.8385989010989011,
+      "precision_macro": 0.8358717404881252,
+      "recall_macro": 0.8373349673202615,
+      "f1_macro": 0.8361655167785499,
+      "confusion_matrix": [
+        [
+          453,
+          47,
+          0
+        ],
+        [
+          68,
+          343,
+          65
+        ],
+        [
+          0,
+          55,
+          425
+        ]
+      ],
+      "confusion_matrix_labels": [
+        "LOW",
+        "MEDIUM",
+        "HIGH"
+      ]
+    },
+    "rule_based_baseline": {
+      "accuracy": 0.49313186813186816,
+      "f1_macro": 0.4528598829004385
+    },
+    "deployment_recommended": true,
+    "split_policy": {
+      "group_columns": [
+        "participant_id",
+        "session_id"
+      ],
+      "test_size": 0.25,
+      "random_seed": 42
+    }
+  },
+  "probability_is_calibrated": false,
+  "classes": [
+    "LOW",
+    "MEDIUM",
+    "HIGH"
+  ],
+  "dataset_rows": 6000,
+  "trained_at": "2026-10-22T15:34:39.120262+00:00",
+  "artifact_path": "priority_engine.joblib"
+}

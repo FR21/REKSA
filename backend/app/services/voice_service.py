@@ -321,8 +321,11 @@ class VoiceService:
                     "hazard_type": matched_hz.get("type") if matched_hz else "VOICE_HAZARD",
                     "proximity": "CRITICAL" if nlu_result["urgency"] == "CRITICAL" else "HIGH",
                     "rssi": worker.get("rssi", -52) if worker else -52,
-                    "duration": 5.0,
-                    "hazard_status": "ACTIVE",
+                    "hazard_status": (
+                        matched_hz.get("status")
+                        if matched_hz and matched_hz.get("status")
+                        else ("MOVING" if (matched_hz and matched_hz.get("category") == "MOBILE") else "ACTIVE")
+                    ),
                     "risk_score": 96 if nlu_result["urgency"] == "CRITICAL" else 76,
                     "risk_level": nlu_result["urgency"],
                     "warning_status": "DELIVERED",

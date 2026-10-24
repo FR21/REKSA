@@ -49,6 +49,15 @@ async def test_temporal_window_calls_ai_and_preserves_metadata() -> None:
                 "probability_is_calibrated": False,
                 "score_semantics": "RULE_SCORE",
                 "advisory_only": True,
+                "anomaly": {
+                    "engine": "OPERATIONAL_ANOMALY_DETECTOR",
+                    "decision_score": 0.125,
+                    "is_anomaly": False,
+                    "status": "NORMAL",
+                    "alert_flag": "NORMAL",
+                    "inference_source": "ISOLATION_FOREST_OPERATIONAL_ANOMALY",
+                    "model_version": "1.0.0",
+                },
                 "generated_at": datetime.now(UTC).isoformat(),
             },
         )
@@ -67,7 +76,10 @@ async def test_temporal_window_calls_ai_and_preserves_metadata() -> None:
     assert second["status"] == "READY"
     assert second["inference_source"] == "RULE_BASED_BASELINE"
     assert second["probability_is_calibrated"] is False
+    assert second["anomaly"]["is_anomaly"] is False
+    assert second["anomaly"]["decision_score"] == 0.125
     assert captured["samples"][0]["acceleration"]["z"] == pytest.approx(1.0)
+
 
 
 @pytest.mark.asyncio

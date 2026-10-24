@@ -14,7 +14,7 @@ import type { Worker, Device } from '../types'
 export default function WorkersPage() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
-  const { t } = useTranslation()
+  const { t, language } = useTranslation()
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const pageSize = 6
@@ -83,7 +83,6 @@ export default function WorkersPage() {
     }
   }
 
-  // Close 3-dot menu on click outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -120,7 +119,7 @@ export default function WorkersPage() {
       setTimeout(() => setSuccessMsg(''), 3000)
     },
     onError: (err: unknown) => {
-      setErrorMsg(getErrorMessage(err, 'Gagal mendaftarkan pekerja'))
+      setErrorMsg(getErrorMessage(err, language === 'id' ? 'Gagal mendaftarkan pekerja' : 'Failed to register worker'))
       setSuccessMsg('')
     }
   })
@@ -145,7 +144,7 @@ export default function WorkersPage() {
       setTimeout(() => setSuccessMsg(''), 3000)
     },
     onError: (err: unknown) => {
-      setErrorMsg(getErrorMessage(err, 'Gagal memperbarui data pekerja'))
+      setErrorMsg(getErrorMessage(err, language === 'id' ? 'Gagal memperbarui data pekerja' : 'Failed to update worker data'))
       setSuccessMsg('')
     }
   })
@@ -164,7 +163,7 @@ export default function WorkersPage() {
       setTimeout(() => setSuccessMsg(''), 3000)
     },
     onError: (err: unknown) => {
-      setErrorMsg(getErrorMessage(err, 'Gagal menghapus pekerja'))
+      setErrorMsg(getErrorMessage(err, language === 'id' ? 'Gagal menghapus pekerja' : 'Failed to delete worker'))
       setSuccessMsg('')
     }
   })

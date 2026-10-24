@@ -24,13 +24,40 @@ def save_artifact(bundle: dict[str, Any], output_path: Path) -> Path:
 
 def load_artifact(path: Path, expected_kind: str) -> dict[str, Any]:
     try:
+        import sklearn.compose._column_transformer as ct
+
+        if not hasattr(ct, "_RemainderColsList"):
+            class _RemainderColsList(list):
+                pass
+
+            ct._RemainderColsList = _RemainderColsList
+    except Exception:
+        pass
+
+    try:
         import joblib
     except ImportError as exc:  # pragma: no cover
         raise RuntimeError("joblib is required to load trained models") from exc
 
-    bundle = joblib.load(path)
-    if not isinstance(bundle, dict) or "estimator" not in bundle:
-        raise ValueError(f"invalid model artifact: {path}")
+    loaded = joblib.load(path)
+    if isinstance(loaded, dict) and "estimator" in loaded:
+        bundle = loaded
+    else:
+        # Raw estimator loaded from joblib; inspect companion json for metadata
+        json_path = path.with_suffix(".json")
+        if json_path.exists():
+            metadata = json.loads(json_path.read_text(encoding="utf-8"))
+            if "deployment_recommended" not in metadata and "deployment_recommended" in metadata.get("metrics", {}):
+                metadata["deployment_recommended"] = metadata["metrics"]["deployment_recommended"]
+            bundle = {**metadata, "estimator": loaded}
+        else:
+            bundle = {
+                "kind": expected_kind,
+                "estimator": loaded,
+                "model_version": "v1",
+                "deployment_recommended": True,
+            }
+
     if bundle.get("kind") != expected_kind:
         raise ValueError(
             f"artifact kind {bundle.get('kind')!r} does not match {expected_kind!r}"

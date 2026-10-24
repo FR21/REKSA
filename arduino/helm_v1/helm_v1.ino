@@ -1,12 +1,12 @@
 #include <Arduino.h>
-#include <NimBLEDevice.h>
-#include <driver/i2s_std.h>
 #include <ArduinoJson.h>
 #include <DHT.h>
+#include <NimBLEDevice.h>
 #include <PubSubClient.h>
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <Wire.h>
+#include <driver/i2s_std.h>
 #include <limits.h>
 #include <time.h>
 #if __has_include("secrets.h")
@@ -155,12 +155,12 @@ constexpr unsigned long HAZARD_TIMEOUT_MS = 6000;
 // THRESHOLD DUAL-PROFILE K3 (CALIBRATED REAL-WORLD)
 // 1. Mobile Hazard (Forklift F01-F99, Container / Crane C01-C99, AGV)
 constexpr int MOBILE_RSSI_CRITICAL = -70; // ~3.5m (waktu reaksi pengereman)
-constexpr int MOBILE_RSSI_HIGH     = -78; // ~6.0m (peringatan mendekat)
+constexpr int MOBILE_RSSI_HIGH = -78;     // ~6.0m (peringatan mendekat)
 constexpr int MOBILE_RSSI_MODERATE = -86; // ~10.0m (zona waspada visual)
 
 // 2. Static / Stationary Hazard (Laser L01-L99, Gerinda G01-G99, Mesin M01-M99)
 constexpr int STATIC_RSSI_CRITICAL = -65; // ~1.2m (zona bahaya pinch-point)
-constexpr int STATIC_RSSI_HIGH     = -74; // ~2.5m (batas area kerja APD wajib)
+constexpr int STATIC_RSSI_HIGH = -74;     // ~2.5m (batas area kerja APD wajib)
 constexpr int STATIC_RSSI_MODERATE = -82; // ~4.0m (masuk perimeter stasiun)
 
 // RSSI smoothing dan stabilisasi perubahan zona.
@@ -308,8 +308,8 @@ uint8_t getZonePriority(ProximityZone zone) {
 
 ProximityZone determineRawZone(int rssi, bool isMobile = true) {
   const int critThresh = isMobile ? MOBILE_RSSI_CRITICAL : STATIC_RSSI_CRITICAL;
-  const int highThresh = isMobile ? MOBILE_RSSI_HIGH     : STATIC_RSSI_HIGH;
-  const int modThresh  = isMobile ? MOBILE_RSSI_MODERATE : STATIC_RSSI_MODERATE;
+  const int highThresh = isMobile ? MOBILE_RSSI_HIGH : STATIC_RSSI_HIGH;
+  const int modThresh = isMobile ? MOBILE_RSSI_MODERATE : STATIC_RSSI_MODERATE;
 
   if (rssi >= critThresh) {
     return ProximityZone::ZONE_CRITICAL;
@@ -323,11 +323,13 @@ ProximityZone determineRawZone(int rssi, bool isMobile = true) {
   return ProximityZone::ZONE_SAFE;
 }
 
-// Hysteresis 3 dBm mencegah perpindahan zona berulang di sekitar batas threshold.
-ProximityZone determineZoneWithHysteresis(int rssi, ProximityZone currentZone, bool isMobile = true) {
+// Hysteresis 3 dBm mencegah perpindahan zona berulang di sekitar batas
+// threshold.
+ProximityZone determineZoneWithHysteresis(int rssi, ProximityZone currentZone,
+                                          bool isMobile = true) {
   const int critThresh = isMobile ? MOBILE_RSSI_CRITICAL : STATIC_RSSI_CRITICAL;
-  const int highThresh = isMobile ? MOBILE_RSSI_HIGH     : STATIC_RSSI_HIGH;
-  const int modThresh  = isMobile ? MOBILE_RSSI_MODERATE : STATIC_RSSI_MODERATE;
+  const int highThresh = isMobile ? MOBILE_RSSI_HIGH : STATIC_RSSI_HIGH;
+  const int modThresh = isMobile ? MOBILE_RSSI_MODERATE : STATIC_RSSI_MODERATE;
 
   if (currentZone == ProximityZone::ZONE_UNKNOWN) {
     return determineRawZone(rssi, isMobile);
@@ -441,8 +443,8 @@ void updateStableZone(HazardData &hazard) {
     return;
   }
 
-  const ProximityZone nextZone =
-      determineZoneWithHysteresis(hazard.smoothedRssi, hazard.zone, hazard.isMobile);
+  const ProximityZone nextZone = determineZoneWithHysteresis(
+      hazard.smoothedRssi, hazard.zone, hazard.isMobile);
 
   if (nextZone == hazard.zone) {
     hazard.candidateZone = hazard.zone;
@@ -1039,7 +1041,8 @@ void setupWiFi() {
 void mqttCallback(char *topic, byte *payload, unsigned int length) {
   if (String(topic).endsWith("/telemetry/ack")) {
     StaticJsonDocument<512> doc;
-    DeserializationError error = deserializeJson(doc, (const char *)payload, length);
+    DeserializationError error =
+        deserializeJson(doc, (const char *)payload, length);
 
     if (error) {
       Serial.print("[MQTT ACK] Gagal parsing JSON: ");
@@ -1066,7 +1069,8 @@ void mqttCallback(char *topic, byte *payload, unsigned int length) {
   Serial.println(topic);
 
   StaticJsonDocument<1024> doc;
-  DeserializationError error = deserializeJson(doc, (const char *)payload, length);
+  DeserializationError error =
+      deserializeJson(doc, (const char *)payload, length);
 
   if (error) {
     Serial.print("Gagal parsing Warning JSON: ");
@@ -1297,33 +1301,43 @@ void publishSensorData() {
       String num = rawId.substring(8);
       cleanId = String(cat) + "-" + typeCode + "-" + num;
 
-      if (typeCode == "FLK") hazardType = "FORKLIFT";
-      else if (typeCode == "CNT" || typeCode == "CRN") hazardType = "CONTAINER_CRANE";
-      else if (typeCode == "AGV") hazardType = "AGV";
-      else if (typeCode == "TRK") hazardType = "TRUCK";
-      else if (typeCode == "LSR") hazardType = "LASER";
-      else if (typeCode == "GRD") hazardType = "GRINDING";
-      else if (typeCode == "PRS") hazardType = "PRESS";
-      else if (typeCode == "CNC") hazardType = "CNC";
-      else hazardType = "MACHINERY";
+      if (typeCode == "FLK")
+        hazardType = "FORKLIFT";
+      else if (typeCode == "CNT" || typeCode == "CRN")
+        hazardType = "CONTAINER_CRANE";
+      else if (typeCode == "AGV")
+        hazardType = "AGV";
+      else if (typeCode == "TRK")
+        hazardType = "TRUCK";
+      else if (typeCode == "LSR")
+        hazardType = "LASER";
+      else if (typeCode == "GRD")
+        hazardType = "GRINDING";
+      else if (typeCode == "PRS")
+        hazardType = "PRESS";
+      else if (typeCode == "CNC")
+        hazardType = "CNC";
+      else
+        hazardType = "MACHINERY";
     } else if (rawId.startsWith(HAZARD_PREFIX)) {
       cleanId = rawId.substring(strlen(HAZARD_PREFIX));
       hazardType = cleanId.startsWith("F")   ? "FORKLIFT"
-                 : cleanId.startsWith("C") ? "CONTAINER_CRANE"
-                 : cleanId.startsWith("G") ? "GRINDING"
-                 : cleanId.startsWith("L") ? "LASER"
-                                           : "MACHINERY";
+                   : cleanId.startsWith("C") ? "CONTAINER_CRANE"
+                   : cleanId.startsWith("G") ? "GRINDING"
+                   : cleanId.startsWith("L") ? "LASER"
+                                             : "MACHINERY";
     } else {
       hazardType = cleanId.startsWith("F")   ? "FORKLIFT"
-                 : cleanId.startsWith("C") ? "CONTAINER_CRANE"
-                 : cleanId.startsWith("G") ? "GRINDING"
-                 : cleanId.startsWith("L") ? "LASER"
-                                           : "MACHINERY";
+                   : cleanId.startsWith("C") ? "CONTAINER_CRANE"
+                   : cleanId.startsWith("G") ? "GRINDING"
+                   : cleanId.startsWith("L") ? "LASER"
+                                             : "MACHINERY";
     }
 
     hz["hazard_id"] = cleanId;
     hz["hazard_type"] = hazardType;
-    hz["hazard_category"] = hazards[hazardIndex].isMobile ? "MOBILE" : "STATIONARY";
+    hz["hazard_category"] =
+        hazards[hazardIndex].isMobile ? "MOBILE" : "STATIONARY";
     hz["operating_status"] = "ACTIVE";
     hz["rssi"] = hazards[hazardIndex].smoothedRssi;
     hz["proximity_level"] = zoneToString(hazards[hazardIndex].zone);
@@ -1418,8 +1432,7 @@ void setup() {
   pinMode(PTT_PIN, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), handleButtonInterrupt,
                   FALLING);
-  attachInterrupt(digitalPinToInterrupt(PTT_PIN), handlePttInterrupt,
-                  FALLING);
+  attachInterrupt(digitalPinToInterrupt(PTT_PIN), handlePttInterrupt, FALLING);
   pinMode(LED_PIN, OUTPUT);
   digitalWrite(LED_PIN, HIGH);
 
@@ -1520,17 +1533,20 @@ void loop() {
   if (pttFlag) {
     pttFlag = false;
     if (!isSystemActive) {
-      Serial.println("\n[AUDIO] PTT ditekan, tetapi sistem helm sedang STANDBY. Aktifkan helm dahulu!");
+      Serial.println("\n[AUDIO] PTT ditekan, tetapi sistem helm sedang "
+                     "STANDBY. Aktifkan helm dahulu!");
     } else {
       if (!isRecording) {
-        Serial.println("\n[AUDIO] Tombol PTT: Mulai rekam suara (START)... Bicara sekarang!");
+        Serial.println("\n[AUDIO] Tombol PTT: Mulai rekam suara (START)... "
+                       "Bicara sekarang!");
         isRecording = true;
         digitalWrite(LED_PTT_PIN, HIGH);
         if (i2s_rx_handle != NULL)
           i2s_channel_enable(i2s_rx_handle);
         mqttClient.publish("reksa/helmet/W01/voice/status", "start");
       } else {
-        Serial.println("\n[AUDIO] Tombol PTT: Berhenti rekam suara (STOP). Memproses ke Wit.ai...");
+        Serial.println("\n[AUDIO] Tombol PTT: Berhenti rekam suara (STOP). "
+                       "Memproses ke Wit.ai...");
         isRecording = false;
         digitalWrite(LED_PTT_PIN, LOW);
         if (i2s_rx_handle != NULL)
@@ -1541,7 +1557,8 @@ void loop() {
   }
 
   if (isRecording) {
-    // Baca 256 sample 32-bit dari I2S (256 sample = 512 bytes audio = ~32ms pada 8kHz)
+    // Baca 256 sample 32-bit dari I2S (256 sample = 512 bytes audio = ~32ms
+    // pada 8kHz)
     int32_t rawBuffer[256];
     int16_t audioBuffer[256];
     size_t bytesIn = 0;
@@ -1559,9 +1576,11 @@ void loop() {
 
       if (mqttClient.connected()) {
         bool sent = mqttClient.publish("reksa/helmet/W01/voice/stream",
-                           (const uint8_t *)audioBuffer, samplesRead * sizeof(int16_t), false);
+                                       (const uint8_t *)audioBuffer,
+                                       samplesRead * sizeof(int16_t), false);
         if (!sent) {
-          Serial.println("[AUDIO] Gagal mengirim chunk ke MQTT! (Buffer penuh?)");
+          Serial.println(
+              "[AUDIO] Gagal mengirim chunk ke MQTT! (Buffer penuh?)");
         }
       }
     }
