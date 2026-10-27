@@ -321,6 +321,10 @@ export const en: TranslationSchema = {
         'Worker in Recovery Mode. Safe condition held after exiting danger zone, alarm stopped, event closed, and duration recorded.',
       'Pekerja dalam Mode Pemulihan. Kondisi aman bertahan, alarm dihentikan, event ditutup dan durasi telah dihitung.':
         'Worker in Recovery Mode. Safe condition held after exiting danger zone, alarm stopped, event closed, and duration recorded.',
+      'Tinggalkan lintasan alat berat. Jaga jarak aman minimal 10-15 meter dari forklift/kontainer bergerak.':
+        'Clear heavy equipment path immediately. Maintain a safe distance of at least 10–15 meters from moving forklifts or containers.',
+      'Patuhi batas garis aman mesin. Gunakan APD lengkap dan hindari titik jepit (pinch-point) mesin.':
+        'Adhere to machine safety clearance lines. Wear full PPE and avoid machine pinch-points.',
     },
     protocolPills: {
       CRITICAL: ['Immediate Evacuation', 'Auto-Buzzer Triggered', 'Mandatory Verification'],
