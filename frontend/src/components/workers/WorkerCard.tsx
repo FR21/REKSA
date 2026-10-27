@@ -137,7 +137,7 @@ export function WorkerCard({
           <span className="metric-label">
             <Activity size={16} /> {language === 'en' ? 'Impact' : 'Benturan'}
           </span>
-          <b className="metric-val">{isOnline ? `${worker.impact_g.toFixed(1)}g` : '-'}</b>
+          <b className="metric-val">{isOnline ? `${(worker.impact_g ?? 1.0).toFixed(1)}g` : '-'}</b>
         </div>
         <div className="metric-pill">
           <span className="metric-label">

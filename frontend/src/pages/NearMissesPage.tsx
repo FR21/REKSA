@@ -307,7 +307,7 @@ export default function NearMissesPage() {
                         <div style={{ fontSize: '12px' }}>
                           <span className="mono">{event.rssi} dBm</span>
                           <div style={{ color: 'var(--muted)', fontSize: '12px' }}>
-                            {t.nearMisses.durationSec(event.duration.toFixed(1))}
+                            {t.nearMisses.durationSec(((event.duration ?? 5.0)).toFixed(1))}
                           </div>
                         </div>
                       </td>

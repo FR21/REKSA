@@ -159,6 +159,8 @@ export interface VoiceTransmission {
   action_taken?: string | null
   audio_available: boolean
   audio_url: string
+  audio_data_uri?: string
+  alarm_dispatched?: boolean
 }
 
 export interface UserProfile {

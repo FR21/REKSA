@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   AlertOctagon,
@@ -75,7 +75,10 @@ export function VoiceDispatcherPanel() {
         method: 'POST',
       }),
     onSuccess: (_data, id) => {
-      useLiveStore.getState().acknowledgeVoiceTransmission(id, 'ALARM_DISPATCHED_TO_HELMET')
+      useLiveStore.getState().updateVoiceTransmission({
+        id,
+        alarm_dispatched: true,
+      } as VoiceTransmission)
       void queryClient.invalidateQueries({ queryKey: ['voice-transmissions'] })
       void queryClient.invalidateQueries({ queryKey: ['workers'] })
       setFeedbackMsg(
@@ -87,9 +90,21 @@ export function VoiceDispatcherPanel() {
     },
   })
 
-  const getAudioUrl = (url?: string) => {
-    const target = url || '/api/v1/voice/latest-audio'
-    if (target.startsWith('http://') || target.startsWith('https://')) {
+  useEffect(() => {
+    setIsPlaying(false)
+    if (audioRef.current) {
+      audioRef.current.pause()
+      audioRef.current.currentTime = 0
+    }
+  }, [activeTransmission?.id])
+
+  const getAudioUrl = (transmission?: VoiceTransmission | null) => {
+    if (!transmission) return ''
+    if (transmission.audio_data_uri) {
+      return transmission.audio_data_uri
+    }
+    const target = transmission.audio_url || '/api/v1/voice/latest-audio'
+    if (target.startsWith('http://') || target.startsWith('https://') || target.startsWith('data:')) {
       return target
     }
     if (API_URL.startsWith('http://') || API_URL.startsWith('https://')) {
@@ -107,6 +122,7 @@ export function VoiceDispatcherPanel() {
       setIsPlaying(false)
     } else {
       audioRef.current.currentTime = 0
+      audioRef.current.load()
       audioRef.current
         .play()
         .then(() => setIsPlaying(true))
@@ -373,8 +389,8 @@ export function VoiceDispatcherPanel() {
               <div className="voice-player-row">
                 <audio
                   ref={audioRef}
-                  src={getAudioUrl(activeTransmission.audio_url)}
-                  preload="none"
+                  src={getAudioUrl(activeTransmission)}
+                  preload="auto"
                   onEnded={handleAudioEnded}
                   onError={(e) => {
                     console.error('Audio element error on src:', audioRef.current?.src, e)
@@ -382,7 +398,7 @@ export function VoiceDispatcherPanel() {
                   }}
                   style={{ display: 'none' }}
                 />
-                {activeTransmission.audio_available ? (
+                {activeTransmission.audio_available || !!activeTransmission.audio_data_uri ? (
                   <button
                     type="button"
                     className="button secondary"
@@ -485,7 +501,25 @@ export function VoiceDispatcherPanel() {
                 )}
               </div>
 
-              <div style={{ fontSize: '12px' }}>
+              <div style={{ fontSize: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {activeTransmission.alarm_dispatched && (
+                  <span
+                    style={{
+                      background: '#fee2e2',
+                      color: '#dc2626',
+                      fontWeight: 600,
+                      padding: '2px 8px',
+                      borderRadius: '4px',
+                      fontSize: '11px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                    }}
+                  >
+                    <BellRing size={12} />
+                    {language === 'en' ? 'Buzzer Alert Sent' : 'Buzzer Terkirim'}
+                  </span>
+                )}
                 <span
                   style={{
                     color: '#ea580c',

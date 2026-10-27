@@ -1,7 +1,10 @@
+import base64
 import io
 import json
 import logging
+import math
 import os
+import struct
 import wave
 from datetime import UTC, datetime
 from typing import Any
@@ -14,6 +17,24 @@ from app.services.websocket_service import websocket_manager
 from app.simulation.engine import simulation_engine
 
 logger = logging.getLogger(__name__)
+
+
+def generate_synthetic_dispatch_tone() -> bytes:
+    sample_rate = 8000
+    duration = 0.8
+    num_samples = int(sample_rate * duration)
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(sample_rate)
+        frames = bytearray()
+        for i in range(num_samples):
+            freq = 880 if i < num_samples // 2 else 1046
+            sample = int(10000 * math.sin(2 * math.pi * freq * (i / sample_rate)))
+            frames.extend(struct.pack("<h", sample))
+        w.writeframes(frames)
+    return buf.getvalue()
 
 
 def get_wit_ai_token() -> str:
@@ -178,13 +199,42 @@ class VoiceService:
     def __init__(self):
         self.audio_buffers: dict[str, bytearray] = {}
         self.audio_cache: dict[str, bytes] = {}
-        self.latest_audio: bytes | None = None
+        self._latest_audio: bytes | None = None
+
+    @property
+    def latest_audio(self) -> bytes | None:
+        if self._latest_audio:
+            return self._latest_audio
+        file_path = "/tmp/reksa_audio/latest_voice.wav"
+        if os.path.exists(file_path):
+            try:
+                with open(file_path, "rb") as f:
+                    return f.read()
+            except Exception:
+                pass
+        return None
+
+    @latest_audio.setter
+    def latest_audio(self, value: bytes | None) -> None:
+        self._latest_audio = value
 
     def get_audio(self, transmission_id: str) -> bytes | None:
-        return self.audio_cache.get(transmission_id) or self.latest_audio
+        cached = self.audio_cache.get(transmission_id)
+        if cached:
+            return cached
+        file_path = os.path.join("/tmp/reksa_audio", f"{transmission_id}.wav")
+        if os.path.exists(file_path):
+            try:
+                with open(file_path, "rb") as f:
+                    data = f.read()
+                    self.audio_cache[transmission_id] = data
+                    return data
+            except Exception:
+                pass
+        return self.latest_audio
 
     def has_audio(self) -> bool:
-        return bool(self.audio_cache or self.latest_audio)
+        return bool(self.audio_cache or self.latest_audio or os.path.exists("/tmp/reksa_audio/latest_voice.wav"))
 
     async def handle_stream(self, worker_id: str, chunk: bytes) -> None:
         if worker_id not in self.audio_buffers:
@@ -210,8 +260,9 @@ class VoiceService:
         now_str = datetime.now(UTC).isoformat()
         time_code = datetime.now(UTC).strftime("%H%M%S")
         transmission_id = f"VT-{time_code}"
+        audio_data_uri = ""
 
-        # Encode PCM into in-memory WAV buffer (no local disk writes)
+        # Encode PCM into in-memory WAV buffer
         try:
             wav_buf = io.BytesIO()
             with wave.open(wav_buf, "wb") as wav_file:
@@ -222,6 +273,16 @@ class VoiceService:
             wav_bytes = wav_buf.getvalue()
             self.audio_cache[transmission_id] = wav_bytes
             self.latest_audio = wav_bytes
+            b64_str = base64.b64encode(wav_bytes).decode("ascii")
+            audio_data_uri = f"data:audio/wav;base64,{b64_str}"
+            try:
+                os.makedirs("/tmp/reksa_audio", exist_ok=True)
+                with open(f"/tmp/reksa_audio/{transmission_id}.wav", "wb") as f:
+                    f.write(wav_bytes)
+                with open("/tmp/reksa_audio/latest_voice.wav", "wb") as f:
+                    f.write(wav_bytes)
+            except Exception:
+                pass
             if len(self.audio_cache) > 20:
                 self.audio_cache.pop(next(iter(self.audio_cache)), None)
         except Exception as exc:
@@ -301,6 +362,7 @@ class VoiceService:
                 "supervisor_note": "",
                 "audio_available": True,
                 "audio_url": f"/api/v1/voice/audio/{transmission_id}",
+                "audio_data_uri": audio_data_uri,
             }
 
             if "voice_transmissions" not in simulation_engine.state:

@@ -28,6 +28,36 @@ async def handle_mqtt_message(topic: str, payload: dict[str, Any] | bytes) -> No
                 await voice_service.handle_status(worker_id, status)
             return
 
+        if category == "helmet" and parts[-1] == "status" and "voice" not in parts:
+            worker_id = parts[2]
+            status_val = payload.get("status") if isinstance(payload, dict) else (payload.decode('utf-8') if isinstance(payload, bytes) else str(payload))
+            is_online = payload.get("online", True) if isinstance(payload, dict) else (str(status_val).upper() not in ("OFFLINE", "0", "FALSE", "DISCONNECTED"))
+            worker = next((w for w in simulation_engine.state["workers"] if w["id"] == worker_id), None)
+            if worker:
+                worker["online"] = is_online
+                worker["hardware_source"] = True
+                worker["last_update"] = now
+                if not is_online:
+                    worker["risk_level"] = "SAFE"
+                    worker["risk_score"] = 0
+                    worker["proximity"] = "SAFE"
+                    worker["closest_hazard"] = None
+                    worker["hazard_name"] = "-"
+                    worker["hazard_status"] = "INACTIVE"
+                    worker["dominant_factor"] = "Perangkat Offline"
+                    worker["recommended_action"] = "Helm keselamatan offline. Pastikan daya perangkat aktif."
+                await websocket_manager.broadcast("worker.updated", worker)
+            dev_ids = (f"DEV-HLM-{worker_id}", f"HELMET-{worker_id}", worker_id)
+            device = next((d for d in simulation_engine.state["devices"] if d["id"] in dev_ids or worker_id in d["id"]), None)
+            if device:
+                device["online"] = is_online
+                device["hardware_source"] = True
+                device["last_seen"] = now
+                device["latest_message"] = now
+                device["signal"] = 90 if is_online else 0
+                await websocket_manager.broadcast("device.paired", device)
+            return
+
         if not isinstance(payload, dict):
             return
 
@@ -38,6 +68,7 @@ async def handle_mqtt_message(topic: str, payload: dict[str, Any] | bytes) -> No
                 air_quality = payload.get("air_quality") or {}
                 worker.update({
                     "online": True,
+                    "hardware_source": True,
                     "impact": payload.get("impact_detected", False),
                     "fall_detected": payload.get("fall_detected", False),
                     "impact_g": payload.get("impact_g", worker.get("impact_g", 1.0)),
@@ -232,6 +263,7 @@ async def handle_mqtt_message(topic: str, payload: dict[str, Any] | bytes) -> No
                 if device:
                     device.update({
                         "online": True,
+                        "hardware_source": True,
                         "last_seen": now,
                         "latest_message": now,
                         "signal": 90,
@@ -248,6 +280,7 @@ async def handle_mqtt_message(topic: str, payload: dict[str, Any] | bytes) -> No
             if hazard:
                 hazard.update({
                     "online": True,
+                    "hardware_source": True,
                     "status": payload.get("operating_status", hazard.get("status", "ACTIVE")),
                     "last_update": now,
                 })
@@ -255,6 +288,7 @@ async def handle_mqtt_message(topic: str, payload: dict[str, Any] | bytes) -> No
                 if device:
                     device.update({
                         "online": True,
+                        "hardware_source": True,
                         "last_seen": now,
                         "latest_message": now,
                     })

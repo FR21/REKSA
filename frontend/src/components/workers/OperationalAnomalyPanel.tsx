@@ -57,11 +57,12 @@ export function OperationalAnomalyPanel({ anomaly, online, impactG, rssi }: Prop
   const currentG = impactG !== undefined && impactG !== null ? impactG : 1.0
   const currentRssi = rssi !== undefined && rssi !== null ? rssi : -75
 
-  const scoreFormatted = anomaly
-    ? anomaly.decision_score > 0
-      ? `+${anomaly.decision_score.toFixed(3)}`
-      : anomaly.decision_score.toFixed(3)
-    : null
+  const scoreFormatted =
+    anomaly && typeof anomaly.decision_score === 'number' && !Number.isNaN(anomaly.decision_score)
+      ? anomaly.decision_score > 0
+        ? `+${anomaly.decision_score.toFixed(3)}`
+        : anomaly.decision_score.toFixed(3)
+      : null
 
   return (
     <Panel

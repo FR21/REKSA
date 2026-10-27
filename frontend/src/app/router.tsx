@@ -1,7 +1,7 @@
 import { lazy, Suspense } from 'react'
-import { createBrowserRouter } from 'react-router-dom'
+import { createBrowserRouter, useRouteError } from 'react-router-dom'
 import { AppLayout } from '../layouts/AppLayout'
-import { LoadingState } from '../components/common/States'
+import { ErrorState, LoadingState } from '../components/common/States'
 
 const Overview = lazy(() => import('../pages/OverviewPage'))
 const Live = lazy(() => import('../pages/LiveMonitoringPage'))
@@ -13,8 +13,21 @@ const Settings = lazy(() => import('../pages/SettingsPage'))
 
 const withSuspense = (element: React.ReactNode) => <Suspense fallback={<LoadingState label="Membuka modul..." />}>{element}</Suspense>
 
+function RouterErrorBoundary() {
+  const error = useRouteError()
+  console.error('Route error boundary caught:', error)
+  return (
+    <div style={{ padding: '2rem', display: 'flex', justifyContent: 'center' }}>
+      <ErrorState retry={() => window.location.reload()} />
+    </div>
+  )
+}
+
 export const router = createBrowserRouter([{
-  path: '/', element: <AppLayout />, children: [
+  path: '/',
+  element: <AppLayout />,
+  errorElement: <RouterErrorBoundary />,
+  children: [
     { index: true, element: withSuspense(<Overview />) },
     { path: 'live', element: withSuspense(<Live />) },
     { path: 'near-misses', element: withSuspense(<NearMisses />) },

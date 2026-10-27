@@ -31,3 +31,4 @@ backend/audio_records/
 .agents/
 skills-lock.json
 docs/FITUR_PROYEK_REKSA.md
+.vscode/

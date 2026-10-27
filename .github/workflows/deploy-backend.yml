@@ -27,21 +27,10 @@ jobs:
 
       - name: Deploy Backend to Cloud Run
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-          WIT_AI_TOKEN: ${{ secrets.WIT_AI_TOKEN || '' }}
         run: |
-          cat << 'EOF' > env.yaml
-          APP_ENV: "production"
-          MQTT_ENABLED: "false"
-          DATABASE_URL: "$DATABASE_URL"
-          WIT_AI_TOKEN: "$WIT_AI_TOKEN"
-          CORS_ORIGINS: "https://reksa-k3.web.app,https://$GCP_PROJECT_ID.web.app,http://localhost:5173"
-          EOF
-          sed -i "s|\$DATABASE_URL|${DATABASE_URL}|g" env.yaml
-          sed -i "s|\$GCP_PROJECT_ID|${GCP_PROJECT_ID}|g" env.yaml
-          sed -i "s|\$WIT_AI_TOKEN|${WIT_AI_TOKEN}|g" env.yaml
-
+          AI_URL=$(gcloud run services describe reksa-ai --region asia-southeast2 --format='value(status.url)' 2>/dev/null || echo "")
+          
           gcloud run deploy reksa-backend \
             --source backend \
             --region asia-southeast2 \
@@ -50,4 +39,4 @@ jobs:
             --cpu 1 \
             --min-instances 0 \
             --max-instances 2 \
-            --env-vars-file env.yaml
+            --update-env-vars "APP_ENV=production,AI_SERVICE_URL=${AI_URL},CORS_ORIGINS=https://reksa-k3.web.app,https://${GCP_PROJECT_ID}.web.app,http://localhost:5173"

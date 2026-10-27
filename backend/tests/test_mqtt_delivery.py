@@ -4,6 +4,7 @@ import json
 from datetime import UTC, datetime
 from types import SimpleNamespace
 
+import pytest
 from pytest import MonkeyPatch
 
 from app.services import mqtt_service as mqtt_service_module
@@ -63,3 +64,52 @@ def test_empty_ca_cert_uses_operating_system_trust_store(monkeypatch: MonkeyPatc
     MQTTService("broker.example", 8883, use_tls=True, ca_cert="")
 
     assert tls_options["ca_certs"] is None
+
+
+@pytest.mark.asyncio
+async def test_mqtt_handler_sets_hardware_source_and_handles_status_topic() -> None:
+    from app.services.mqtt_handler import handle_mqtt_message
+    from app.simulation.engine import simulation_engine
+
+    worker = simulation_engine.state["workers"][0]
+    device = next(d for d in simulation_engine.state["devices"] if d["id"] == f"DEV-HLM-{worker['id']}")
+
+    # 1. Telemetry sets hardware_source = True
+    await handle_mqtt_message(f"REKSA/helmet/{worker['id']}/sensor", helmet_payload())
+    assert worker["hardware_source"] is True
+    assert worker["calculation_source"] == "HARDWARE_MQTT"
+    assert worker["online"] is True
+    assert device["hardware_source"] is True
+    assert device["online"] is True
+
+    # 2. Status topic with offline sets online=False and resets risk state
+    await handle_mqtt_message(f"REKSA/helmet/{worker['id']}/status", {"online": False, "status": "OFFLINE"})
+    assert worker["online"] is False
+    assert worker["risk_level"] == "SAFE"
+    assert worker["risk_score"] == 0
+    assert device["online"] is False
+
+
+@pytest.mark.asyncio
+async def test_inactivity_watchdog_marks_worker_offline_after_timeout() -> None:
+    from datetime import timedelta
+    from app.main import check_inactivity_once
+    from app.simulation.engine import simulation_engine
+
+    worker = simulation_engine.state["workers"][0]
+    worker["online"] = True
+    worker["hardware_source"] = True
+    worker["risk_level"] = "CRITICAL"
+    worker["risk_score"] = 92
+    worker["closest_hazard"] = "M-FLK-01"
+    # Set last_update to 60 seconds ago
+    worker["last_update"] = (datetime.now(UTC) - timedelta(seconds=60)).isoformat()
+
+    await check_inactivity_once()
+
+    assert worker["online"] is False
+    assert worker["risk_level"] == "SAFE"
+    assert worker["risk_score"] == 0
+
+
+

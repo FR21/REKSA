@@ -334,7 +334,7 @@ class DatabaseService:
                         "hazard_type": h.hazard_type,
                         "proximity": "CRITICAL" if nm.risk_score >= 75 else "HIGH",
                         "rssi": nm.maximum_rssi,
-                        "duration": nm.critical_duration,
+                        "duration": float(nm.critical_duration) if nm.critical_duration is not None else 5.0,
                         "hazard_status": nm.hazard_status,
                         "risk_score": nm.risk_score,
                         "risk_level": "CRITICAL" if nm.risk_score >= 75 else "HIGH",

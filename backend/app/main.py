@@ -23,38 +23,64 @@ from app.simulation.engine import simulation_engine
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 
 
-async def monitor_inactivity() -> None:
+async def check_inactivity_once() -> None:
     from app.api.v1.router import SYSTEM_SETTINGS, sync_today_history
+    now = datetime.now(UTC)
+    timeout_seconds = SYSTEM_SETTINGS.get("device_offline_timeout", 30)
+    threshold = timedelta(seconds=timeout_seconds)
+    
+    try:
+        sync_today_history()
+    except Exception:
+        pass
+    
+    for device in simulation_engine.state.get("devices", []):
+        is_hw = device.get("hardware_source") or "DEV-HLM-W01" in device.get("id", "")
+        if is_hw and device.get("online") and device.get("last_seen"):
+            try:
+                last_seen = datetime.fromisoformat(device["last_seen"])
+                if now - last_seen > threshold:
+                    device["online"] = False
+                    device["signal"] = 0
+                    await websocket_manager.broadcast("device.paired", device)
+            except Exception:
+                pass
+    
+    for worker in simulation_engine.state.get("workers", []):
+        is_hw = worker.get("hardware_source") or worker.get("calculation_source") == "HARDWARE_MQTT"
+        if is_hw and worker.get("online") and worker.get("last_update"):
+            try:
+                last_update = datetime.fromisoformat(worker["last_update"])
+                if now - last_update > threshold:
+                    worker["online"] = False
+                    worker["risk_level"] = "SAFE"
+                    worker["risk_score"] = 0
+                    worker["proximity"] = "SAFE"
+                    worker["closest_hazard"] = None
+                    worker["hazard_name"] = "-"
+                    worker["hazard_status"] = "INACTIVE"
+                    worker["dominant_factor"] = "Perangkat Offline"
+                    worker["recommended_action"] = "Helm keselamatan offline. Pastikan daya perangkat aktif."
+                    await websocket_manager.broadcast("worker.updated", worker)
+            except Exception:
+                pass
+
+    for hazard in simulation_engine.state.get("hazards", []):
+        if hazard.get("hardware_source") and hazard.get("online") and hazard.get("last_update"):
+            try:
+                last_update = datetime.fromisoformat(hazard["last_update"])
+                if now - last_update > threshold:
+                    hazard["online"] = False
+                    hazard["status"] = "INACTIVE"
+                    await websocket_manager.broadcast("hazard.updated", hazard)
+            except Exception:
+                pass
+
+
+async def monitor_inactivity() -> None:
     while True:
+        await check_inactivity_once()
         await asyncio.sleep(5)
-        now = datetime.now(UTC)
-        timeout_seconds = SYSTEM_SETTINGS.get("device_offline_timeout", 60)
-        threshold = timedelta(seconds=timeout_seconds)
-        
-        try:
-            sync_today_history()
-        except Exception:
-            pass
-        
-        for device in simulation_engine.state.get("devices", []):
-            if device.get("hardware_source") and device.get("online") and device.get("last_seen"):
-                try:
-                    last_seen = datetime.fromisoformat(device["last_seen"])
-                    if now - last_seen > threshold:
-                        device["online"] = False
-                        await websocket_manager.broadcast("device.paired", device)
-                except Exception:
-                    pass
-        
-        for worker in simulation_engine.state.get("workers", []):
-            if worker.get("hardware_source") and worker.get("online") and worker.get("last_update"):
-                try:
-                    last_update = datetime.fromisoformat(worker["last_update"])
-                    if now - last_update > threshold:
-                        worker["online"] = False
-                        await websocket_manager.broadcast("worker.updated", worker)
-                except Exception:
-                    pass
 
 mqtt_service = MQTTService(
     settings.mqtt_host,

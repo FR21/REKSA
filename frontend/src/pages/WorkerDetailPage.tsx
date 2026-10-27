@@ -191,7 +191,7 @@ export default function WorkerDetailPage() {
             {t.workerDetail.impact}
             <b>
               {data.online
-                ? `${data.impact_g.toFixed(1)}g · ${
+                ? `${(data.impact_g ?? 1.0).toFixed(1)}g · ${
                     data.fall_detected
                       ? t.workerDetail.impactFall
                       : data.impact
@@ -464,7 +464,7 @@ export default function WorkerDetailPage() {
                         <small>{event.hazard_type}</small>
                       </td>
                       <td>{event.rssi} dBm</td>
-                      <td>{event.duration.toFixed(1)} {language === 'en' ? 's' : 'dtk'}</td>
+                      <td>{(event.duration ?? 5.0).toFixed(1)} {language === 'en' ? 's' : 'dtk'}</td>
                       <td>
                         <b>{event.risk_score}</b>
                       </td>

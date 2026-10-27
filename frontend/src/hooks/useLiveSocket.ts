@@ -63,6 +63,13 @@ export function useLiveSocket() {
           }
           void queryClient.invalidateQueries({ queryKey: ['voice-transmissions'] })
         }
+        if (envelope.event === 'voice.transmission_updated') {
+          const trans = envelope.data as VoiceTransmission
+          if (trans?.id) {
+            useLiveStore.getState().updateVoiceTransmission(trans)
+          }
+          void queryClient.invalidateQueries({ queryKey: ['voice-transmissions'] })
+        }
         if (['near_miss.created', 'near_miss.acknowledged', 'warning.created', 'simulation.status_changed', 'worker.deleted', 'device.deleted', 'device.paired', 'voice.transmission_acknowledged'].includes(envelope.event)) {
           void queryClient.invalidateQueries()
         }

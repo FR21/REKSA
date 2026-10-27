@@ -106,8 +106,10 @@ class MQTTService:
                 return
 
             payload = json.loads(message.payload.decode("utf-8"))
-            category = message.topic.split("/")[1]
-            schema = TOPIC_SCHEMAS.get(category)
+            parts = message.topic.split("/")
+            category = parts[1] if len(parts) > 1 else ""
+            subtopic = parts[-1] if len(parts) > 2 else ""
+            schema = TOPIC_SCHEMAS.get(category) if subtopic in ("sensor", "beacon", "data") else None
             validated = schema.model_validate(payload).model_dump(mode="json") if schema else payload
             message_id = str(validated.get("message_id", "")).strip()
             worker_id = str(validated.get("worker_id", "")).strip()

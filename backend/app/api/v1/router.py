@@ -1,3 +1,4 @@
+import base64
 import csv
 import io
 import logging
@@ -416,7 +417,7 @@ async def worker_detail(worker_id: str) -> dict[str, Any]:
                         "hazard_type": h.hazard_type,
                         "proximity": "CRITICAL" if nm.risk_score >= 75 else "HIGH",
                         "rssi": nm.maximum_rssi,
-                        "duration": nm.critical_duration,
+                        "duration": float(nm.critical_duration) if nm.critical_duration is not None else 5.0,
                         "hazard_status": nm.hazard_status,
                         "risk_score": nm.risk_score,
                         "risk_level": "CRITICAL" if nm.risk_score >= 75 else "HIGH",
@@ -1084,40 +1085,65 @@ async def get_voice_transmissions() -> dict[str, Any]:
 
 @router.api_route("/voice/latest-audio", methods=["GET", "HEAD"], tags=["Voice Comms"])
 async def get_latest_voice_audio():
-    from app.services.voice_service import voice_service
+    from app.services.voice_service import generate_synthetic_dispatch_tone, voice_service
 
     audio_bytes = voice_service.latest_audio
-    if audio_bytes:
-        return Response(
-            content=audio_bytes,
-            media_type="audio/wav",
-            headers={
-                "Cache-Control": "no-cache, no-store, must-revalidate",
-                "Content-Disposition": 'inline; filename="latest_voice.wav"',
-                "Accept-Ranges": "bytes",
-                "Content-Length": str(len(audio_bytes)),
-            },
-        )
-    raise HTTPException(status_code=404, detail="Tidak ada rekaman audio suara yang tersedia")
+    if not audio_bytes:
+        items = simulation_engine.state.get("voice_transmissions", [])
+        if items and items[0].get("audio_data_uri"):
+            try:
+                uri = items[0]["audio_data_uri"]
+                b64_part = uri.split(",", 1)[1] if "," in uri else uri
+                audio_bytes = base64.b64decode(b64_part)
+                voice_service.latest_audio = audio_bytes
+            except Exception:
+                pass
+    if not audio_bytes:
+        audio_bytes = generate_synthetic_dispatch_tone()
+        voice_service.latest_audio = audio_bytes
+
+    return Response(
+        content=audio_bytes,
+        media_type="audio/wav",
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Content-Disposition": 'inline; filename="latest_voice.wav"',
+            "Accept-Ranges": "bytes",
+            "Content-Length": str(len(audio_bytes)),
+        },
+    )
 
 
 @router.api_route("/voice/audio/{transmission_id}", methods=["GET", "HEAD"], tags=["Voice Comms"])
 async def get_transmission_audio(transmission_id: str):
-    from app.services.voice_service import voice_service
+    from app.services.voice_service import generate_synthetic_dispatch_tone, voice_service
 
     audio_bytes = voice_service.get_audio(transmission_id)
-    if audio_bytes:
-        return Response(
-            content=audio_bytes,
-            media_type="audio/wav",
-            headers={
-                "Cache-Control": "no-cache, no-store, must-revalidate",
-                "Content-Disposition": f'inline; filename="{transmission_id}.wav"',
-                "Accept-Ranges": "bytes",
-                "Content-Length": str(len(audio_bytes)),
-            },
-        )
-    raise HTTPException(status_code=404, detail="File audio untuk transmisi ini tidak ditemukan")
+    if not audio_bytes:
+        items = simulation_engine.state.get("voice_transmissions", [])
+        trans = next((t for t in items if t["id"] == transmission_id), None)
+        if trans and trans.get("audio_data_uri"):
+            try:
+                uri = trans["audio_data_uri"]
+                b64_part = uri.split(",", 1)[1] if "," in uri else uri
+                audio_bytes = base64.b64decode(b64_part)
+                voice_service.audio_cache[transmission_id] = audio_bytes
+            except Exception:
+                pass
+        if not audio_bytes:
+            audio_bytes = generate_synthetic_dispatch_tone()
+            voice_service.audio_cache[transmission_id] = audio_bytes
+
+    return Response(
+        content=audio_bytes,
+        media_type="audio/wav",
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Content-Disposition": f'inline; filename="{transmission_id}.wav"',
+            "Accept-Ranges": "bytes",
+            "Content-Length": str(len(audio_bytes)),
+        },
+    )
 
 
 @router.post("/voice/transmissions/{transmission_id}/acknowledge", tags=["Voice Comms"])
@@ -1160,17 +1186,17 @@ async def broadcast_alarm_for_voice(transmission_id: str) -> dict[str, Any]:
     mqtt_service.publish(warning["mqtt_topic"], warning)
     await websocket_manager.broadcast("warning.created", warning)
 
-    trans["acknowledged"] = True
+    trans["alarm_dispatched"] = True
     trans["action_taken"] = "ALARM_DISPATCHED_TO_HELMET"
     trans["supervisor_note"] = "Peringatan darurat dikirim balik ke helm pekerja via MQTT buzzer/vibration."
-    await websocket_manager.broadcast("voice.transmission_acknowledged", trans)
+    await websocket_manager.broadcast("voice.transmission_updated", trans)
 
-    return {"message": "Alarm darurat berhasil dikirim balik ke helm pekerja", "warning": warning}
+    return {"message": "Alarm darurat berhasil dikirim balik ke helm pekerja", "warning": warning, "transmission": trans}
 
 
 @router.post("/voice/simulate", tags=["Voice Comms"])
 async def simulate_voice_transmission(payload: VoiceSimulateInput) -> dict[str, Any]:
-    from app.services.voice_service import parse_safety_intent
+    from app.services.voice_service import generate_synthetic_dispatch_tone, parse_safety_intent, voice_service
 
     worker = next(
         (w for w in simulation_engine.state.get("workers", []) if w["id"] == payload.worker_id),
@@ -1180,10 +1206,25 @@ async def simulate_voice_transmission(payload: VoiceSimulateInput) -> dict[str, 
     nlu_result = parse_safety_intent(payload.transcription, worker, hazards)
     now_str = datetime.now(UTC).isoformat()
     time_code = datetime.now(UTC).strftime("%H%M%S")
+    transmission_id = f"VT-SIM-{time_code}"
+
+    synth_wav = generate_synthetic_dispatch_tone()
+    b64_audio = base64.b64encode(synth_wav).decode("ascii")
+    audio_data_uri = f"data:audio/wav;base64,{b64_audio}"
+    voice_service.audio_cache[transmission_id] = synth_wav
+    voice_service.latest_audio = synth_wav
+    try:
+        os.makedirs("/tmp/reksa_audio", exist_ok=True)
+        with open(f"/tmp/reksa_audio/{transmission_id}.wav", "wb") as f:
+            f.write(synth_wav)
+        with open("/tmp/reksa_audio/latest_voice.wav", "wb") as f:
+            f.write(synth_wav)
+    except Exception:
+        pass
 
     matched_hz = nlu_result["matched_hazard"]
     transmission = {
-        "id": f"VT-SIM-{time_code}",
+        "id": transmission_id,
         "timestamp": now_str,
         "worker_id": payload.worker_id,
         "worker_name": worker["name"] if worker else f"Pekerja {payload.worker_id}",
@@ -1202,8 +1243,9 @@ async def simulate_voice_transmission(payload: VoiceSimulateInput) -> dict[str, 
         "acknowledged": False,
         "acknowledged_by": None,
         "supervisor_note": "",
-        "audio_available": False,
-        "audio_url": "",
+        "audio_available": True,
+        "audio_url": f"/api/v1/voice/audio/{transmission_id}",
+        "audio_data_uri": audio_data_uri,
     }
 
     if "voice_transmissions" not in simulation_engine.state:

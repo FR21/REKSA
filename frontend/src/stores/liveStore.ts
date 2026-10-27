@@ -22,6 +22,7 @@ interface LiveState {
   setWsStatus: (status: LiveState['wsStatus']) => void
   setVoiceTransmissions: (items: VoiceTransmission[]) => void
   addVoiceTransmission: (item: VoiceTransmission) => void
+  updateVoiceTransmission: (item: VoiceTransmission) => void
   acknowledgeVoiceTransmission: (id: string, note?: string) => void
   registerEvent: (id: string, critical?: boolean, payload?: { event?: string; data?: Record<string, unknown> } | null) => boolean
   clearNotifications: () => void
@@ -59,6 +60,14 @@ export const useLiveStore = create<LiveState>((set, get) => ({
       voiceTransmissions: [item, ...state.voiceTransmissions.filter((t) => t.id !== item.id)].slice(0, 40),
       latestTransmission: item,
     })),
+  updateVoiceTransmission: (item) =>
+    set((state) => {
+      const updated = state.voiceTransmissions.map((t) => (t.id === item.id ? { ...t, ...item } : t))
+      return {
+        voiceTransmissions: updated,
+        latestTransmission: state.latestTransmission?.id === item.id ? { ...state.latestTransmission, ...item } : state.latestTransmission,
+      }
+    }),
   acknowledgeVoiceTransmission: (id, note) =>
     set((state) => {
       const updated = state.voiceTransmissions.map((t) =>
