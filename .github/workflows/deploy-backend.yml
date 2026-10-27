@@ -27,27 +27,47 @@ jobs:
 
       - name: Deploy Backend to Cloud Run
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL || '' }}
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL || '' }}
           WIT_AI_TOKEN: ${{ secrets.WIT_AI_TOKEN || '' }}
+          MQTT_HOST: ${{ secrets.MQTT_HOST || '' }}
+          MQTT_PORT: ${{ secrets.MQTT_PORT || '' }}
+          MQTT_USERNAME: ${{ secrets.MQTT_USERNAME || '' }}
+          MQTT_PASSWORD: ${{ secrets.MQTT_PASSWORD || '' }}
+          MQTT_TLS: ${{ secrets.MQTT_TLS || '' }}
+          MQTT_ENABLED: ${{ secrets.MQTT_ENABLED || '' }}
         run: |
           AI_URL=$(gcloud run services describe reksa-ai --region asia-southeast2 --format='value(status.url)' 2>/dev/null || echo "")
 
-          python3 -c "
-          import os
-          data = {
-              'APP_ENV': 'production',
-              'AI_SERVICE_URL': os.environ.get('AI_URL', ''),
-              'DATABASE_URL': os.environ.get('DATABASE_URL', ''),
-              'WIT_AI_TOKEN': os.environ.get('WIT_AI_TOKEN', ''),
-              'CORS_ORIGINS': f\"https://reksa-k3.web.app,https://{os.environ.get('GCP_PROJECT_ID', '')}.web.app,http://localhost:5173\",
-          }
-          with open('env.yaml', 'w') as f:
-              for k, v in data.items():
-                  if v:
-                      escaped = str(v).replace('\\\\', '\\\\\\\\').replace('\"', '\\\\\"')
-                      f.write(f'{k}: \"{escaped}\"\n')
-          "
+          ENV_VARS="^#^APP_ENV=production#CORS_ORIGINS=https://reksa-k3.web.app,https://${GCP_PROJECT_ID}.web.app,http://localhost:5173"
+
+          if [ -n "$AI_URL" ]; then
+            ENV_VARS="${ENV_VARS}#AI_SERVICE_URL=${AI_URL}"
+          fi
+          if [ -n "$DATABASE_URL" ]; then
+            ENV_VARS="${ENV_VARS}#DATABASE_URL=${DATABASE_URL}"
+          fi
+          if [ -n "$WIT_AI_TOKEN" ]; then
+            ENV_VARS="${ENV_VARS}#WIT_AI_TOKEN=${WIT_AI_TOKEN}"
+          fi
+          if [ -n "$MQTT_HOST" ]; then
+            ENV_VARS="${ENV_VARS}#MQTT_HOST=${MQTT_HOST}"
+          fi
+          if [ -n "$MQTT_PORT" ]; then
+            ENV_VARS="${ENV_VARS}#MQTT_PORT=${MQTT_PORT}"
+          fi
+          if [ -n "$MQTT_USERNAME" ]; then
+            ENV_VARS="${ENV_VARS}#MQTT_USERNAME=${MQTT_USERNAME}"
+          fi
+          if [ -n "$MQTT_PASSWORD" ]; then
+            ENV_VARS="${ENV_VARS}#MQTT_PASSWORD=${MQTT_PASSWORD}"
+          fi
+          if [ -n "$MQTT_TLS" ]; then
+            ENV_VARS="${ENV_VARS}#MQTT_TLS=${MQTT_TLS}"
+          fi
+          if [ -n "$MQTT_ENABLED" ]; then
+            ENV_VARS="${ENV_VARS}#MQTT_ENABLED=${MQTT_ENABLED}"
+          fi
 
           gcloud run deploy reksa-backend \
             --source backend \
@@ -57,4 +77,4 @@ jobs:
             --cpu 1 \
             --min-instances 0 \
             --max-instances 2 \
-            --env-vars-file env.yaml
+            --update-env-vars "${ENV_VARS}"
