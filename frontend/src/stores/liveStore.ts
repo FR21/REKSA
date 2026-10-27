@@ -22,6 +22,7 @@ interface LiveState {
   setWsStatus: (status: LiveState['wsStatus']) => void
   setVoiceTransmissions: (items: VoiceTransmission[]) => void
   addVoiceTransmission: (item: VoiceTransmission) => void
+  acknowledgeVoiceTransmission: (id: string, note?: string) => void
   registerEvent: (id: string, critical?: boolean, payload?: { event?: string; data?: Record<string, unknown> } | null) => boolean
   clearNotifications: () => void
   markAllRead: () => void
@@ -51,13 +52,24 @@ export const useLiveStore = create<LiveState>((set, get) => ({
   setVoiceTransmissions: (voiceTransmissions) =>
     set({
       voiceTransmissions,
-      latestTransmission: voiceTransmissions.length > 0 ? voiceTransmissions[0] : null,
+      latestTransmission: voiceTransmissions.find((t) => !t.acknowledged) || null,
     }),
   addVoiceTransmission: (item) =>
     set((state) => ({
       voiceTransmissions: [item, ...state.voiceTransmissions.filter((t) => t.id !== item.id)].slice(0, 40),
       latestTransmission: item,
     })),
+  acknowledgeVoiceTransmission: (id, note) =>
+    set((state) => {
+      const updated = state.voiceTransmissions.map((t) =>
+        t.id === id ? { ...t, acknowledged: true, supervisor_note: note ?? t.supervisor_note } : t
+      )
+      const nextActive = updated.find((t) => !t.acknowledged) || null
+      return {
+        voiceTransmissions: updated,
+        latestTransmission: nextActive,
+      }
+    }),
   registerEvent: (id, critical = false, payload: { event?: string; data?: Record<string, unknown> } | null = null) => {
     if (get().lastEventId === id) return false
     set((state) => {
@@ -81,13 +93,20 @@ export const useLiveStore = create<LiveState>((set, get) => ({
           const transcription = payload?.data?.transcription || '(suara tidak jelas)'
           const workerId = payload?.data?.worker_id || 'Unknown Worker'
           msg = `🎙️ [${workerId}] Suara: "${transcription}"`
-        } else {
-          msg = payload?.event === 'near_miss.created' ? '🚨 Peringatan Near Miss terdeteksi!' : '⚠️ Peringatan bahaya terdeteksi!'
-          if (payload?.data?.worker_name) {
-            msg = `${payload.data.worker_name}: ${msg}`
-          } else if (payload?.data?.device_id) {
-            msg = `${payload.data.device_id}: ${msg}`
+        } else if (payload?.event === 'warning.created') {
+          const reason = String(payload?.data?.reason || '')
+          const workerId = String(payload?.data?.worker_id || 'helm')
+          if (/Alarm Balasan Suara|Buzzer/i.test(reason)) {
+            msg = `🔊 Alarm buzzer dikirim ke helm ${workerId}`
+          } else {
+            msg = `⚠️ Peringatan dikirim ke ${workerId}: ${reason || 'Bahaya terdeteksi'}`
           }
+        } else if (payload?.event === 'near_miss.created') {
+          const workerName = payload?.data?.worker_name || payload?.data?.worker_id || 'Pekerja'
+          const hazardName = payload?.data?.hazard_name || 'Bahaya'
+          msg = `🚨 Near Miss [${workerName}]: Mendekati ${hazardName}`
+        } else {
+          msg = '⚠️ Peringatan sistem K3'
         }
         
         newNotifs.unshift({

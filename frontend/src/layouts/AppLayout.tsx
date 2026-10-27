@@ -20,8 +20,6 @@ export function AppLayout() {
   const [notificationOpen, setNotificationOpen] = useState(false)
   const [profileModalOpen, setProfileModalOpen] = useState(false)
   const notifRef = useRef<HTMLDivElement | null>(null)
-
-  // Profile synced with Backend DB & WebSocket
   const { profile, updateProfile, isUpdating } = useProfile()
   const [editName, setEditName] = useState(profile.name)
   const [editRole, setEditRole] = useState(profile.role)
@@ -33,8 +31,6 @@ export function AppLayout() {
   const clearNotifications = useLiveStore((state) => state.clearNotifications)
   const markAllRead = useLiveStore((state) => state.markAllRead)
   useLiveSocket()
-
-  // Close notification dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (notifRef.current && !notifRef.current.contains(e.target as Node)) {

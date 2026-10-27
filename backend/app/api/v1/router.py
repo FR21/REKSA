@@ -1094,6 +1094,8 @@ async def get_latest_voice_audio():
             headers={
                 "Cache-Control": "no-cache, no-store, must-revalidate",
                 "Content-Disposition": 'inline; filename="latest_voice.wav"',
+                "Accept-Ranges": "bytes",
+                "Content-Length": str(len(audio_bytes)),
             },
         )
     raise HTTPException(status_code=404, detail="Tidak ada rekaman audio suara yang tersedia")
@@ -1111,6 +1113,8 @@ async def get_transmission_audio(transmission_id: str):
             headers={
                 "Cache-Control": "no-cache, no-store, must-revalidate",
                 "Content-Disposition": f'inline; filename="{transmission_id}.wav"',
+                "Accept-Ranges": "bytes",
+                "Content-Length": str(len(audio_bytes)),
             },
         )
     raise HTTPException(status_code=404, detail="File audio untuk transmisi ini tidak ditemukan")

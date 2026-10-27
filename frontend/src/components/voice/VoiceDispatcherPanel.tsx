@@ -5,6 +5,8 @@ import {
   AlertTriangle,
   BellRing,
   CheckCircle2,
+  Clock,
+  History,
   MapPin,
   Mic,
   Pause,
@@ -13,7 +15,7 @@ import {
   ShieldAlert,
   Volume2,
 } from 'lucide-react'
-import { api } from '../../services/api'
+import { api, API_URL } from '../../services/api'
 import { useLiveStore } from '../../stores/liveStore'
 import { useTranslation } from '../../i18n'
 import type { VoiceTransmission } from '../../types'
@@ -29,28 +31,40 @@ export function VoiceDispatcherPanel() {
 
   const transmissionsQuery = useQuery({
     queryKey: ['voice-transmissions'],
-    queryFn: () => api<{ items: VoiceTransmission[]; total: number; latest: VoiceTransmission | null; audio_available: boolean }>('/voice/transmissions'),
+    queryFn: () =>
+      api<{
+        items: VoiceTransmission[]
+        total: number
+        latest: VoiceTransmission | null
+        audio_available: boolean
+      }>('/voice/transmissions'),
     refetchInterval: 5_000,
   })
 
   const liveLatest = useLiveStore((state) => state.latestTransmission)
+  const allItems = transmissionsQuery.data?.items ?? []
+  const unhandledItems = allItems.filter((item) => !item.acknowledged)
   const activeTransmission: VoiceTransmission | null =
-    liveLatest || transmissionsQuery.data?.latest || (transmissionsQuery.data?.items?.[0] ?? null)
+    (liveLatest && !liveLatest.acknowledged ? liveLatest : null) ||
+    unhandledItems[0] ||
+    null
 
   const acknowledgeMutation = useMutation({
     mutationFn: (id: string) =>
       api<VoiceTransmission>(`/voice/transmissions/${id}/acknowledge`, {
         method: 'POST',
         body: JSON.stringify({
-          supervisor_note: language === 'en'
-            ? 'Verified in command center and followed up'
-            : 'Diverifikasi langsung di command center dan ditindaklanjuti',
+          supervisor_note:
+            language === 'en'
+              ? 'Verified in command center and followed up'
+              : 'Diverifikasi langsung di command center dan ditindaklanjuti',
           action_taken: 'VERIFIED_IN_PERSON',
         }),
       }),
-    onSuccess: () => {
+    onSuccess: (_updated, id) => {
+      useLiveStore.getState().acknowledgeVoiceTransmission(id)
       void queryClient.invalidateQueries({ queryKey: ['voice-transmissions'] })
-      setFeedbackMsg(t.voice.feedbackSuccess)
+      setFeedbackMsg(language === 'en' ? 'Transmission marked as handled.' : 'Transmisi berhasil ditangani.')
       setTimeout(() => setFeedbackMsg(''), 4000)
     },
   })
@@ -60,13 +74,31 @@ export function VoiceDispatcherPanel() {
       api<{ message: string }>(`/voice/transmissions/${id}/broadcast-alarm`, {
         method: 'POST',
       }),
-    onSuccess: (data) => {
+    onSuccess: (_data, id) => {
+      useLiveStore.getState().acknowledgeVoiceTransmission(id, 'ALARM_DISPATCHED_TO_HELMET')
       void queryClient.invalidateQueries({ queryKey: ['voice-transmissions'] })
       void queryClient.invalidateQueries({ queryKey: ['workers'] })
-      setFeedbackMsg(data.message || t.voice.feedbackAlarmSent)
+      setFeedbackMsg(
+        language === 'en'
+          ? 'Emergency alert buzzer sent to helmet.'
+          : 'Alarm buzzer darurat berhasil dikirim ke helm.'
+      )
       setTimeout(() => setFeedbackMsg(''), 4000)
     },
   })
+
+  const getAudioUrl = (url?: string) => {
+    const target = url || '/api/v1/voice/latest-audio'
+    if (target.startsWith('http://') || target.startsWith('https://')) {
+      return target
+    }
+    if (API_URL.startsWith('http://') || API_URL.startsWith('https://')) {
+      const base = API_URL.replace(/\/api\/v1\/?$/, '')
+      const path = target.startsWith('/') ? target : `/${target}`
+      return `${base}${path}`
+    }
+    return target
+  }
 
   const toggleAudio = () => {
     if (!audioRef.current) return
@@ -78,7 +110,16 @@ export function VoiceDispatcherPanel() {
       audioRef.current
         .play()
         .then(() => setIsPlaying(true))
-        .catch(() => setIsPlaying(false))
+        .catch((err) => {
+          console.error('Audio play error:', err)
+          setIsPlaying(false)
+          setFeedbackMsg(
+            language === 'en'
+              ? 'Unable to play audio. Recording might have expired or connection failed.'
+              : 'Gagal memutar audio. Rekaman mungkin telah kedaluwarsa atau terjadi gangguan koneksi.'
+          )
+          setTimeout(() => setFeedbackMsg(''), 4000)
+        })
     }
   }
 
@@ -89,20 +130,25 @@ export function VoiceDispatcherPanel() {
   const getUrgencyTone = (urgency: string) => {
     switch (urgency) {
       case 'CRITICAL':
-        return { bg: '#fef2f2', border: '#fca5a5', text: '#dc2626', badge: 'critical' }
+        return { bg: '#fef2f2', border: '#fca5a5', text: '#dc2626', badgeBg: '#fee2e2' }
       case 'HIGH':
-        return { bg: '#fff7ed', border: '#fdba74', text: '#ea580c', badge: 'high' }
+        return { bg: '#fff7ed', border: '#fdba74', text: '#ea580c', badgeBg: '#ffedd5' }
       case 'MODERATE':
-        return { bg: '#fffbeb', border: '#fcd34d', text: '#d97706', badge: 'moderate' }
+        return { bg: '#fffbeb', border: '#fcd34d', text: '#d97706', badgeBg: '#fef3c7' }
       default:
-        return { bg: '#f0fdf4', border: '#86efac', text: '#16a34a', badge: 'safe' }
+        return { bg: '#f0fdf4', border: '#86efac', text: '#16a34a', badgeBg: '#dcfce7' }
     }
   }
 
   const tone = activeTransmission ? getUrgencyTone(activeTransmission.urgency) : null
 
   return (
-    <section className="panel voice-dispatcher-panel" style={{ border: tone ? `1px solid ${tone.border}` : undefined }}>
+    <section
+      className="panel voice-dispatcher-panel"
+      style={{
+        borderColor: tone ? tone.border : undefined,
+      }}
+    >
       <div className="panel-header" style={{ paddingBottom: '12px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div
@@ -114,38 +160,51 @@ export function VoiceDispatcherPanel() {
               color: '#0f78f6',
               display: 'grid',
               placeItems: 'center',
+              flexShrink: 0,
             }}
           >
-            <Radio size={20} />
+            <Radio size={18} />
           </div>
           <div>
-            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>{t.voice.panelTitle}</h3>
+            <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: 'var(--text)' }}>
+              {t.voice.panelTitle}
+            </h3>
             <p style={{ margin: 0, fontSize: '12px', color: 'var(--muted)' }}>
               {t.voice.panelSubtitle}
             </p>
           </div>
         </div>
+
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {transmissionsQuery.data?.items && transmissionsQuery.data.items.length > 0 && (
+          {allItems.length > 0 && (
             <button
+              type="button"
               className="button secondary"
-              style={{ padding: '4px 12px', fontSize: '12px', height: 'auto' }}
+              style={{
+                padding: '4px 10px',
+                fontSize: '11px',
+                height: 'auto',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
               onClick={() => setShowHistory(!showHistory)}
             >
-              {showHistory ? t.voice.btnHideHistory : t.voice.btnShowHistory(transmissionsQuery.data.items.length)}
+              <History size={13} />
+              <span>{showHistory ? t.voice.btnHideHistory : t.voice.btnShowHistory(allItems.length)}</span>
             </button>
           )}
         </div>
       </div>
 
-      <div className="panel-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <div className="panel-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
         {feedbackMsg && (
           <div
             style={{
               background: '#f0fdf4',
               border: '1px solid #bbf7d0',
               color: '#166534',
-              padding: '8px 16px',
+              padding: '8px 14px',
               borderRadius: '8px',
               fontSize: '12px',
               display: 'flex',
@@ -153,7 +212,7 @@ export function VoiceDispatcherPanel() {
               gap: '8px',
             }}
           >
-            <CheckCircle2 size={16} />
+            <CheckCircle2 size={16} style={{ flexShrink: 0 }} />
             <span>{feedbackMsg}</span>
           </div>
         )}
@@ -161,90 +220,132 @@ export function VoiceDispatcherPanel() {
         {!activeTransmission ? (
           <div
             style={{
-              padding: '32px 16px',
+              padding: '24px 16px',
               textAlign: 'center',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
-              gap: '8px',
-              color: 'var(--muted)',
+              gap: '6px',
+              background: '#f8fafc',
+              borderRadius: '8px',
+              border: '1px dashed #cbd5e1',
             }}
           >
-            <Mic size={28} style={{ opacity: 0.4 }} />
-            <strong style={{ color: 'var(--text)', fontSize: '16px' }}>{t.voice.emptyTitle}</strong>
-            <p style={{ margin: 0, fontSize: '12px', maxWidth: '420px', lineHeight: 1.5 }}>
-              {t.voice.emptyDesc}
+            <div
+              style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '50%',
+                background: '#e2e8f0',
+                display: 'grid',
+                placeItems: 'center',
+                color: '#64748b',
+                marginBottom: '4px',
+              }}
+            >
+              {allItems.length > 0 ? <CheckCircle2 size={18} style={{ color: '#16a34a' }} /> : <Mic size={18} />}
+            </div>
+            <strong style={{ color: 'var(--text)', fontSize: '14px' }}>
+              {allItems.length > 0
+                ? (language === 'en' ? 'All Voice Transmissions Handled' : 'Semua Transmisi Suara Telah Ditangani')
+                : t.voice.emptyTitle}
+            </strong>
+            <p style={{ margin: 0, fontSize: '12px', color: 'var(--muted)', maxWidth: '440px', lineHeight: 1.5 }}>
+              {allItems.length > 0
+                ? (language === 'en'
+                    ? 'No open transmissions awaiting response. Review past calls in history anytime.'
+                    : 'Tidak ada transmisi suara aktif yang menunggu respons. Periksa riwayat panggilan kapan saja.')
+                : t.voice.emptyDesc}
             </p>
+            {allItems.length > 0 && !showHistory && (
+              <button
+                type="button"
+                className="button secondary"
+                style={{ marginTop: '6px', padding: '4px 12px', fontSize: '12px', height: 'auto' }}
+                onClick={() => setShowHistory(true)}
+              >
+                <History size={14} />
+                <span>{language === 'en' ? `View History (${allItems.length})` : `Buka Riwayat (${allItems.length})`}</span>
+              </button>
+            )}
           </div>
         ) : (
           <div
+            className="voice-card"
             style={{
               background: tone?.bg,
               border: `1px solid ${tone?.border}`,
-              borderRadius: '8px',
-              padding: '16px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '16px',
             }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '8px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div
-                  style={{
-                    width: '40px',
-                    height: '40px',
-                    borderRadius: '8px',
-                    background: '#0f78f6',
-                    color: '#fff',
-                    display: 'grid',
-                    placeItems: 'center',
-                    fontWeight: 700,
-                    fontSize: '16px',
-                  }}
-                >
-                  {activeTransmission.worker_name.split(' ').map((p) => p[0]).slice(0, 2).join('')}
+            {/* Header: Worker & Urgency Badges (Decluttered) */}
+            <div className="voice-worker-header">
+              <div className="voice-worker-info">
+                <div className="voice-avatar">
+                  {activeTransmission.worker_name
+                    .split(' ')
+                    .map((p) => p[0])
+                    .slice(0, 2)
+                    .join('')}
                 </div>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <strong style={{ fontSize: '16px' }}>{activeTransmission.worker_name}</strong>
-                    <span style={{ fontSize: '12px', background: '#e2e8f0', padding: '4px 8px', borderRadius: '4px', fontWeight: 600 }}>
-                      {activeTransmission.worker_id}
+                <div className="voice-worker-meta">
+                  <div className="voice-worker-meta-top">
+                    <span className="voice-worker-name">{activeTransmission.worker_name}</span>
+                    <span className="voice-badge-id">{activeTransmission.worker_id}</span>
+                    <span className="voice-location-tag">
+                      <MapPin size={12} />
+                      {activeTransmission.area}
                     </span>
-                    <span style={{ fontSize: '12px', color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                      <MapPin size={12} /> {activeTransmission.area}
-                    </span>
+                    {activeTransmission.target_hazard_name && (
+                      <span
+                        style={{
+                          fontSize: '11px',
+                          background: '#fff',
+                          border: '1px solid #e2e8f0',
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          color: '#475569',
+                          fontWeight: 600,
+                        }}
+                      >
+                        ⚠️ {activeTransmission.target_hazard_name}
+                      </span>
+                    )}
                   </div>
-                  <small style={{ color: 'var(--muted)', fontSize: '12px' }}>
+                  <small style={{ color: 'var(--muted)', fontSize: '11px' }}>
                     {t.voice.transmittedAt(formatDate(activeTransmission.timestamp, language))}
                   </small>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div className="voice-badges-right">
                 <span
                   style={{
                     background: tone?.text,
                     color: '#fff',
-                    fontSize: '12px',
+                    fontSize: '11px',
                     fontWeight: 700,
-                    padding: '4px 8px',
+                    padding: '3px 8px',
                     borderRadius: '4px',
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '4px',
+                    letterSpacing: '0.02em',
                   }}
                 >
-                  {activeTransmission.urgency === 'CRITICAL' ? <AlertOctagon size={12} /> : <AlertTriangle size={12} />}
+                  {activeTransmission.urgency === 'CRITICAL' ? (
+                    <AlertOctagon size={12} />
+                  ) : (
+                    <AlertTriangle size={12} />
+                  )}
                   {activeTransmission.urgency}
                 </span>
                 <span
                   style={{
                     background: '#ffffff',
                     border: '1px solid #cbd5e1',
-                    fontSize: '12px',
+                    fontSize: '11px',
                     fontWeight: 600,
-                    padding: '4px 8px',
+                    padding: '3px 8px',
                     borderRadius: '4px',
                     color: 'var(--text)',
                   }}
@@ -254,45 +355,31 @@ export function VoiceDispatcherPanel() {
               </div>
             </div>
 
-            <div
-              style={{
-                background: '#ffffff',
-                border: '1px solid #e2e8f0',
-                borderRadius: '8px',
-                padding: '12px 16px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '8px',
-              }}
-            >
+            {/* Audio Transcription Card */}
+            <div className="voice-audio-box">
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--muted)', letterSpacing: '0.04em' }}>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--muted)', letterSpacing: '0.05em' }}>
                   {t.voice.transcriptionTitle}
                 </span>
-                <span style={{ fontSize: '12px', color: '#0f78f6', fontWeight: 600 }}>
+                <span style={{ fontSize: '11px', color: '#0f78f6', fontWeight: 600 }}>
                   {t.voice.nluAccuracy(Math.round(activeTransmission.confidence * 100))}
                 </span>
               </div>
 
-              <blockquote
-                style={{
-                  margin: 0,
-                  fontSize: '16px',
-                  fontWeight: 600,
-                  color: '#0f172a',
-                  fontStyle: 'italic',
-                  lineHeight: 1.5,
-                }}
-              >
+              <blockquote className="voice-quote">
                 "{activeTransmission.transcription}"
               </blockquote>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '4px', paddingTop: '8px', borderTop: '1px solid #f1f5f9', flexWrap: 'wrap' }}>
+              <div className="voice-player-row">
                 <audio
                   ref={audioRef}
-                  src={activeTransmission.audio_url || '/api/v1/voice/latest-audio'}
+                  src={getAudioUrl(activeTransmission.audio_url)}
                   preload="none"
                   onEnded={handleAudioEnded}
+                  onError={(e) => {
+                    console.error('Audio element error on src:', audioRef.current?.src, e)
+                    setIsPlaying(false)
+                  }}
                   style={{ display: 'none' }}
                 />
                 {activeTransmission.audio_available ? (
@@ -302,8 +389,8 @@ export function VoiceDispatcherPanel() {
                     style={{
                       display: 'inline-flex',
                       alignItems: 'center',
-                      gap: '8px',
-                      padding: '8px 12px',
+                      gap: '6px',
+                      padding: '6px 12px',
                       fontSize: '12px',
                       height: 'auto',
                       background: isPlaying ? '#0f78f6' : '#ffffff',
@@ -312,103 +399,69 @@ export function VoiceDispatcherPanel() {
                     }}
                     onClick={toggleAudio}
                   >
-                    {isPlaying ? <Pause size={16} /> : <Play size={16} />}
+                    {isPlaying ? <Pause size={14} /> : <Play size={14} />}
                     <span>{isPlaying ? t.voice.btnPauseAudio : t.voice.btnPlayAudio}</span>
                   </button>
                 ) : (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--muted)', background: '#f8fafc', padding: '4px 12px', borderRadius: '4px', border: '1px solid #e2e8f0' }}>
-                    <Mic size={16} />
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      fontSize: '11px',
+                      color: 'var(--muted)',
+                      background: '#f8fafc',
+                      padding: '4px 10px',
+                      borderRadius: '4px',
+                      border: '1px solid #e2e8f0',
+                    }}
+                  >
+                    <Mic size={14} />
                     <span>{t.voice.simulatedAudio}</span>
                   </div>
                 )}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--muted)' }}>
-                  <Volume2 size={16} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--muted)' }}>
+                  <Volume2 size={14} />
                   <span>{t.voice.audioSpecs(activeTransmission.audio_available)}</span>
                 </div>
               </div>
             </div>
 
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
-              <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--muted)' }}>{t.voice.detectedEntities}</span>
-              {activeTransmission.target_hazard_name && (
-                <span
-                  style={{
-                    background: '#ffffff',
-                    border: '1px solid #e2e8f0',
-                    fontSize: '12px',
-                    padding: '4px 8px',
-                    borderRadius: '4px',
-                    fontWeight: 600,
-                  }}
-                >
-                  {t.voice.relatedHazard} <strong>{activeTransmission.target_hazard_name}</strong> ({activeTransmission.target_hazard_id})
-                </span>
-              )}
-              <span
-                style={{
-                  background: '#ffffff',
-                  border: '1px solid #e2e8f0',
-                  fontSize: '12px',
-                  padding: '4px 8px',
-                  borderRadius: '4px',
-                  fontWeight: 600,
-                }}
-              >
-                {t.voice.location} <strong>{activeTransmission.area}</strong>
-              </span>
-              <span
-                style={{
-                  background: '#ffffff',
-                  border: '1px solid #e2e8f0',
-                  fontSize: '12px',
-                  padding: '4px 8px',
-                  borderRadius: '4px',
-                  fontWeight: 600,
-                }}
-              >
-                {t.voice.classification} <strong>{activeTransmission.nature}</strong>
-              </span>
-            </div>
-
+            {/* Recommendation Box */}
             <div
+              className="voice-rec-card"
               style={{
-                background: '#ffffff',
-                borderLeft: `4px solid ${tone?.text}`,
-                padding: '8px 12px',
-                borderRadius: '0 8px 8px 0',
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: '8px',
+                borderLeft: `3px solid ${tone?.text}`,
               }}
             >
-              <ShieldAlert size={20} style={{ color: tone?.text, flexShrink: 0, marginTop: '2px' }} />
+              <ShieldAlert size={18} style={{ color: tone?.text, flexShrink: 0, marginTop: '2px' }} />
               <div>
-                <strong style={{ fontSize: '12px', color: tone?.text }}>{t.voice.actionRecommendation}</strong>
-                <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#1e293b', lineHeight: 1.4 }}>
+                <strong style={{ fontSize: '12px', color: tone?.text, display: 'block' }}>
+                  {t.voice.actionRecommendation}
+                </strong>
+                <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#1e293b', lineHeight: 1.45 }}>
                   {activeTransmission.recommended_action}
                 </p>
               </div>
             </div>
 
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                gap: '8px',
-                paddingTop: '4px',
-              }}
-            >
-              <div style={{ display: 'flex', gap: '8px' }}>
+            {/* Action Buttons Row */}
+            <div className="voice-actions-row">
+              <div className="voice-actions-btns">
                 <button
                   type="button"
                   className="button danger"
                   disabled={broadcastAlarmMutation.isPending}
                   onClick={() => broadcastAlarmMutation.mutate(activeTransmission.id)}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '12px', padding: '8px 16px' }}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontSize: '12px',
+                    padding: '8px 14px',
+                  }}
                 >
-                  <BellRing size={16} />
+                  <BellRing size={15} />
                   <span>{t.voice.btnSendAlarm}</span>
                 </button>
 
@@ -418,34 +471,57 @@ export function VoiceDispatcherPanel() {
                     className="button secondary"
                     disabled={acknowledgeMutation.isPending}
                     onClick={() => acknowledgeMutation.mutate(activeTransmission.id)}
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '12px', padding: '8px 16px' }}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      fontSize: '12px',
+                      padding: '8px 14px',
+                    }}
                   >
-                    <CheckCircle2 size={16} />
+                    <CheckCircle2 size={15} />
                     <span>{t.voice.btnMarkHandled}</span>
                   </button>
                 )}
               </div>
 
-              <div style={{ fontSize: '12px', color: 'var(--muted)' }}>
-                {activeTransmission.acknowledged ? (
-                  <span style={{ color: '#16a34a', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                    <CheckCircle2 size={16} /> {t.voice.statusHandled}
-                  </span>
-                ) : (
-                  <span style={{ color: '#ea580c', fontWeight: 600 }}>{t.voice.statusWaiting}</span>
-                )}
+              <div style={{ fontSize: '12px' }}>
+                <span
+                  style={{
+                    color: '#ea580c',
+                    fontWeight: 600,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}
+                >
+                  <Clock size={13} />
+                  {t.voice.statusWaiting}
+                </span>
               </div>
             </div>
           </div>
         )}
 
-        {showHistory && transmissionsQuery.data?.items && (
-          <div style={{ marginTop: '8px', borderTop: '1px solid #e2e8f0', paddingTop: '16px' }}>
-            <h4 style={{ margin: '0 0 12px 0', fontSize: '12px', fontWeight: 700, color: 'var(--text)' }}>
-              {t.voice.historyTitle(transmissionsQuery.data.items.length)}
-            </h4>
-            <div className="table-wrap" style={{ maxHeight: '220px', overflowY: 'auto' }}>
-              <table style={{ fontSize: '12px' }}>
+        {/* History Table (Clean & Styled matching REKSA theme) */}
+        {showHistory && allItems.length > 0 && (
+          <div style={{ marginTop: '4px', borderTop: '1px solid #e2e8f0', paddingTop: '14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+              <h4 style={{ margin: 0, fontSize: '13px', fontWeight: 700, color: 'var(--text)' }}>
+                {t.voice.historyTitle(allItems.length)}
+              </h4>
+              <button
+                type="button"
+                className="button secondary"
+                style={{ padding: '2px 8px', fontSize: '11px', height: 'auto' }}
+                onClick={() => setShowHistory(false)}
+              >
+                {t.voice.btnHideHistory}
+              </button>
+            </div>
+
+            <div className="table-wrap voice-history-table" style={{ maxHeight: '240px' }}>
+              <table>
                 <thead>
                   <tr>
                     <th>{language === 'en' ? 'Timestamp' : 'Waktu'}</th>
@@ -457,36 +533,69 @@ export function VoiceDispatcherPanel() {
                   </tr>
                 </thead>
                 <tbody>
-                  {transmissionsQuery.data.items.map((item) => (
+                  {allItems.map((item) => (
                     <tr key={item.id}>
-                      <td><small>{formatDate(item.timestamp, language)}</small></td>
-                      <td><strong>{item.worker_name}</strong><br /><small>{item.worker_id}</small></td>
+                      <td style={{ whiteSpace: 'nowrap' }}>
+                        <small>{formatDate(item.timestamp, language)}</small>
+                      </td>
+                      <td>
+                        <strong>{item.worker_name}</strong>
+                        <small>{item.worker_id}</small>
+                      </td>
                       <td>{item.area}</td>
                       <td>
                         <span
                           style={{
-                            fontSize: '12px',
+                            fontSize: '11px',
                             fontWeight: 700,
-                            padding: '4px 8px',
+                            padding: '2px 6px',
                             borderRadius: '4px',
-                            background: item.urgency === 'CRITICAL' ? '#fef2f2' : item.urgency === 'HIGH' ? '#fff7ed' : '#f0fdf4',
-                            color: item.urgency === 'CRITICAL' ? '#dc2626' : item.urgency === 'HIGH' ? '#ea580c' : '#16a34a',
+                            background:
+                              item.urgency === 'CRITICAL'
+                                ? '#fef2f2'
+                                : item.urgency === 'HIGH'
+                                ? '#fff7ed'
+                                : '#f0fdf4',
+                            color:
+                              item.urgency === 'CRITICAL'
+                                ? '#dc2626'
+                                : item.urgency === 'HIGH'
+                                ? '#ea580c'
+                                : '#16a34a',
                           }}
                         >
                           {item.urgency}
                         </span>
                       </td>
-                      <td style={{ maxWidth: '280px', whiteSpace: 'normal' }}>
+                      <td style={{ maxWidth: '240px', whiteSpace: 'normal', fontStyle: 'italic', color: '#1e293b' }}>
                         "{item.transcription}"
                       </td>
                       <td>
                         {item.acknowledged ? (
-                          <span style={{ color: '#16a34a', fontWeight: 600 }}>
-                            {language === 'en' ? 'Resolved' : 'Selesai'}
+                          <span
+                            style={{
+                              color: '#16a34a',
+                              fontWeight: 600,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                            }}
+                          >
+                            <CheckCircle2 size={13} />
+                            {language === 'en' ? 'Handled' : 'Selesai'}
                           </span>
                         ) : (
-                          <span style={{ color: '#ea580c', fontWeight: 600 }}>
-                            {language === 'en' ? 'Open' : 'Terbuka'}
+                          <span
+                            style={{
+                              color: '#ea580c',
+                              fontWeight: 600,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                            }}
+                          >
+                            <Clock size={13} />
+                            {language === 'en' ? 'Waiting' : 'Menunggu'}
                           </span>
                         )}
                       </td>
