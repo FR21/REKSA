@@ -1,10 +1,26 @@
-from __future__ import annotations
-
+import logging
 from collections import defaultdict, deque
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
+
+logger = logging.getLogger("reksa.ai_advisory")
+
+PROXIMITY_MAP = {
+    "CRITICAL": "CRITICAL",
+    "DANGER": "CRITICAL",
+    "KRITIS": "CRITICAL",
+    "HIGH": "HIGH",
+    "TINGGI": "HIGH",
+    "WARNING": "HIGH",
+    "MODERATE": "MODERATE",
+    "MEDIUM": "MODERATE",
+    "SEDANG": "MODERATE",
+    "CAUTION": "MODERATE",
+    "SAFE": "SAFE",
+    "AMAN": "SAFE",
+}
 
 
 class AIAdvisoryService:
@@ -37,15 +53,28 @@ class AIAdvisoryService:
         acceleration_g = {
             axis: float(acceleration.get(axis, 0.0)) / 9.80665 for axis in ("x", "y", "z")
         }
+        raw_rssi = float(payload.get("closest_hazard", {}).get("rssi") or -100.0)
+        if raw_rssi > 0:
+            raw_rssi = -raw_rssi
+        clamped_rssi = max(-120.0, min(0.0, raw_rssi))
+
+        gyro_raw = payload.get("gyroscope") or {}
+        gyroscope = {axis: float(gyro_raw.get(axis, 0.0)) for axis in ("x", "y", "z")}
+
+        orient_raw = payload.get("orientation") or {}
+        orientation = {axis: float(orient_raw.get(axis, 0.0)) for axis in ("pitch", "roll", "yaw")}
+
+        prox_clean = PROXIMITY_MAP.get(proximity.upper(), "SAFE")
+
         return {
-            "timestamp": payload["timestamp"],
-            "rssi": float(payload["closest_hazard"]["rssi"]),
+            "timestamp": payload.get("timestamp") or datetime.now(UTC).isoformat(),
+            "rssi": clamped_rssi,
             "packet_received": True,
             "acceleration": acceleration_g,
-            "gyroscope": payload.get("gyroscope") or {"x": 0, "y": 0, "z": 0},
-            "orientation": payload.get("orientation") or {"pitch": 0, "roll": 0, "yaw": 0},
-            "proximity_level": proximity,
-            "hazard_active": hazard_active,
+            "gyroscope": gyroscope,
+            "orientation": orientation,
+            "proximity_level": prox_clean,
+            "hazard_active": bool(hazard_active),
         }
 
     @staticmethod
@@ -71,9 +100,10 @@ class AIAdvisoryService:
                 "generated_at": datetime.now(UTC).isoformat(),
             }
 
-        worker_id = str(payload["worker_id"])
-        hazard_id = str(closest["hazard_id"])
-        proximity = str(closest.get("proximity_level", "SAFE")).upper()
+        worker_id = str(payload.get("worker_id", "UNKNOWN"))[:40]
+        hazard_id = str(closest.get("hazard_id", "UNKNOWN"))[:40]
+        raw_prox = str(closest.get("proximity_level", "SAFE")).upper()
+        proximity = PROXIMITY_MAP.get(raw_prox, "SAFE")
         operating_status = str(closest.get("operating_status", "INACTIVE")).upper()
         hazard_active = operating_status in {"ACTIVE", "MOVING", "RUNNING"}
         key = f"{worker_id}:{hazard_id}"
@@ -88,26 +118,53 @@ class AIAdvisoryService:
                 "generated_at": datetime.now(UTC).isoformat(),
             }
 
+        # Ensure timestamps in samples are strictly increasing and formatted
+        sanitized_samples = []
+        last_dt = None
+        for s in samples:
+            dt = self._parse_timestamp(s["timestamp"])
+            if last_dt is not None and dt <= last_dt:
+                dt = last_dt + timedelta(milliseconds=10)
+            last_dt = dt
+            s_clean = dict(s)
+            s_clean["timestamp"] = dt.isoformat()
+            sanitized_samples.append(s_clean)
+
+        msg_id = str(payload.get("message_id") or "msg")[:30]
+        window_id = f"{key}:{msg_id}"[:100]
+
         request = {
-            "window_id": f"{key}:{payload['message_id']}",
+            "window_id": window_id,
             "worker_id": worker_id,
-            "helmet_id": str(payload["device_id"]),
+            "helmet_id": str(payload.get("device_id") or worker_id)[:80],
             "hazard_id": hazard_id,
-            "hazard_type": str(closest.get("hazard_type", "UNKNOWN")),
-            "samples": samples,
+            "hazard_type": str(closest.get("hazard_type", "UNKNOWN"))[:60],
+            "samples": sanitized_samples,
         }
         try:
             response = await self._client.post(f"{self.base_url}/v1/forecast", json=request)
             response.raise_for_status()
             result = response.json()
             result["status"] = "READY"
-            result["sample_count"] = len(samples)
+            result["sample_count"] = len(sanitized_samples)
             return result
-        except (httpx.HTTPError, ValueError) as error:
+        except httpx.HTTPError as error:
+            resp_body = getattr(getattr(error, "response", None), "text", "")
+            logger.warning("AI forecast error: %s (%s)", error, resp_body)
             return {
                 "status": "UNAVAILABLE",
                 "error": type(error).__name__,
-                "sample_count": len(samples),
+                "detail": resp_body[:200] if resp_body else str(error),
+                "sample_count": len(sanitized_samples),
+                "advisory_only": True,
+                "generated_at": datetime.now(UTC).isoformat(),
+            }
+        except ValueError as error:
+            logger.warning("AI payload validation error: %s", error)
+            return {
+                "status": "UNAVAILABLE",
+                "error": "ValueError",
+                "sample_count": len(sanitized_samples),
                 "advisory_only": True,
                 "generated_at": datetime.now(UTC).isoformat(),
             }

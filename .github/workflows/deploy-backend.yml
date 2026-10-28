@@ -28,6 +28,7 @@ jobs:
       - name: Deploy Backend to Cloud Run
         env:
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          AI_SERVICE_URL: ${{ secrets.AI_SERVICE_URL || '' }}
           DATABASE_URL: ${{ secrets.DATABASE_URL || '' }}
           WIT_AI_TOKEN: ${{ secrets.WIT_AI_TOKEN || '' }}
           MQTT_HOST: ${{ secrets.MQTT_HOST || '' }}
@@ -38,6 +39,9 @@ jobs:
           MQTT_ENABLED: ${{ secrets.MQTT_ENABLED || '' }}
         run: |
           AI_URL=$(gcloud run services describe reksa-ai --region asia-southeast2 --format='value(status.url)' 2>/dev/null || echo "")
+          if [ -z "$AI_URL" ] && [ -n "$AI_SERVICE_URL" ]; then
+            AI_URL="$AI_SERVICE_URL"
+          fi
 
           ENV_VARS="^#^APP_ENV=production#CORS_ORIGINS=https://reksa-k3.web.app,https://${GCP_PROJECT_ID}.web.app,http://localhost:5173"
 
